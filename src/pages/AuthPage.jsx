@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login")
@@ -10,6 +11,10 @@ export default function AuthPage() {
     password: "",
     referralCode: "",
   })
+  const [recaptchaToken, setRecaptchaToken] = useState("")
+  const recaptchaRef = useRef(null)
+
+  const navigate = useNavigate()
 
   const handleInputChange = (e) => {
     setFormData({
@@ -18,13 +23,60 @@ export default function AuthPage() {
     })
   }
 
+  const handleRecaptchaChange = (token) => {
+    setRecaptchaToken(token)
+  }
+
+  const handleRecaptchaExpired = () => {
+    setRecaptchaToken("")
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset()
+    }
+  }
+
+  const handleRecaptchaError = () => {
+    setRecaptchaToken("")
+    console.error("reCAPTCHA failed to load or encountered an error")
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (activeTab === "login") {
-      console.log("Login submitted:", { username: formData.username, password: formData.password })
-    } else {
-      console.log("Register submitted:", formData)
+    
+    // Check if reCAPTCHA is completed
+    if (!recaptchaToken) {
+      alert("Please complete the reCAPTCHA verification")
+      return
     }
+
+    if (activeTab === "login") {
+      console.log("Login submitted:", { 
+        username: formData.username, 
+        password: formData.password,
+        recaptchaToken 
+      })
+      navigate("/dashboard")
+    } else {
+      console.log("Register submitted:", {
+        ...formData,
+        recaptchaToken
+      })
+      navigate("/dashboard")
+    }
+
+    // Reset reCAPTCHA after submission
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset()
+    }
+    setRecaptchaToken("")
+  }
+
+  // Reset reCAPTCHA when switching tabs
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset()
+    }
+    setRecaptchaToken("")
   }
 
   return (
@@ -54,7 +106,7 @@ export default function AuthPage() {
           {/* Tabs */}
           <div className="flex bg-[#1a1a2e] rounded-lg mb-6">
             <button
-              onClick={() => setActiveTab("login")}
+              onClick={() => handleTabChange("login")}
               className={`flex-1 py-2.5 font-medium transition-all rounded-lg ${
                 activeTab === "login"
                   ? "bg-black text-white"
@@ -64,7 +116,7 @@ export default function AuthPage() {
               Login
             </button>
             <button
-              onClick={() => setActiveTab("register")}
+              onClick={() => handleTabChange("register")}
               className={`flex-1 py-2.5 font-medium transition-all rounded-lg ${
                 activeTab === "register"
                   ? "bg-black text-white"
@@ -110,10 +162,23 @@ export default function AuthPage() {
                   />
                 </div>
 
+                {/* reCAPTCHA */}
+                <div className="flex justify-center py-2">
+                  <div
+                    className="g-recaptcha"
+                    data-sitekey="your-recaptcha-site-key"
+                    data-callback={handleRecaptchaChange}
+                    data-expired-callback={handleRecaptchaExpired}
+                    data-error-callback={handleRecaptchaError}
+                    ref={recaptchaRef}
+                  ></div>
+                </div>
+
                 {/* Login Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg"
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!recaptchaToken}
                 >
                   Login
                 </button>
@@ -177,10 +242,23 @@ export default function AuthPage() {
                   />
                 </div>
 
+                {/* reCAPTCHA */}
+                <div className="flex justify-center py-2">
+                  <div
+                    className="g-recaptcha"
+                    data-sitekey="your-recaptcha-site-key"
+                    data-callback={handleRecaptchaChange}
+                    data-expired-callback={handleRecaptchaExpired}
+                    data-error-callback={handleRecaptchaError}
+                    ref={recaptchaRef}
+                  ></div>
+                </div>
+
                 {/* Register Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg"
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!recaptchaToken}
                 >
                   Create Account
                 </button>
@@ -195,6 +273,13 @@ export default function AuthPage() {
           </p>
         </div>
       </div>
+
+      {/* Load reCAPTCHA script */}
+      <script
+        src="https://www.google.com/recaptcha/api.js"
+        async
+        defer
+      ></script>
     </div>
   )
 }
