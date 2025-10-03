@@ -88,6 +88,7 @@ export default function Dashboard() {
       </div>
 
       {/* Profile Section */}
+ 
       <div className="px-6 py-4 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-gray-900">
@@ -98,6 +99,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-400">{userData.uid}</p>
           </div>
         </div>
+
 
         {/* Verification Badge */}
         <div
@@ -396,39 +398,100 @@ export default function Dashboard() {
 
             {!fundType ? (
               <div className="p-6 space-y-4">
+                <p className="text-gray-400 mb-4">Choose funding method:</p>
                 <button
-                  onClick={() => setFundType("token")}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all"
+                  onClick={() => setFundType("cmeme")}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all shadow-lg"
                 >
-                  Fund with Token
+                  Fund with CMEME
                 </button>
                 <button
-                  onClick={() => setFundType("usd")}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:from-purple-600 hover:to-pink-600 transition-all"
+                  onClick={() => setFundType("usdt")}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold transition-all shadow-lg"
                 >
-                  Fund with USD
+                  Fund with USDT
                 </button>
               </div>
-            ) : (
-              <div className="p-6 space-y-6">
-                <div>
-                  <p className="text-sm text-gray-400 mb-2">Send {fundType.toUpperCase()} to this address:</p>
-                  <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-xl">
-                    <span className="font-mono text-sm text-gray-100 truncate">{userData.walletAddress}</span>
+            ) : fundType === "cmeme" ? (
+              <div className="p-6 space-y-4">
+                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                  <p className="text-gray-400 text-sm mb-2">Your UID</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-gray-950 px-3 py-2 rounded-lg text-yellow-400 font-mono text-sm">
+                      {userData.uid}
+                    </code>
                     <button
-                      onClick={() => handleCopy(userData.walletAddress)}
-                      className="ml-2 p-2 rounded-lg hover:bg-gray-600 transition-colors"
+                      onClick={() => handleCopy(userData.uid)}
+                      className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
                     >
-                      {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} className="text-gray-400" />}
+                      {copied ? (
+                        <Check size={16} className="text-green-400" />
+                      ) : (
+                        <Copy size={16} className="text-gray-300" />
+                      )}
                     </button>
                   </div>
                 </div>
-
+                <p className="text-gray-400 text-sm">
+                  Share this UID with the sender. Transaction will be auto-verified.
+                </p>
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                  <p className="text-green-400 text-sm">✓ You can withdraw CMEME tokens anytime</p>
+                </div>
                 <button
-                  onClick={() => setFundModalOpen(false)}
-                  className="w-full py-3 rounded-xl bg-gray-700/50 text-gray-300 font-semibold hover:bg-gray-700 transition-all"
+                  onClick={() => {
+                    setFundType(null)
+                    setFundModalOpen(false)
+                  }}
+                  className="w-full py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold transition-colors"
                 >
-                  Done
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-3">
+                  <p className="text-gray-400 text-sm">Wallet Address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-gray-950 px-3 py-2 rounded-lg text-green-400 font-mono text-xs break-all">
+                      {userData.walletAddress}
+                    </code>
+                    <button
+                      onClick={() => handleCopy(userData.walletAddress)}
+                      className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors flex-shrink-0"
+                    >
+                      {copied ? (
+                        <Check size={16} className="text-green-400" />
+                      ) : (
+                        <Copy size={16} className="text-gray-300" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="space-y-2 pt-2 border-t border-gray-700">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Network:</span>
+                      <span className="text-gray-200">Ethereum (ERC-20)</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Min. Deposit:</span>
+                      <span className="text-gray-200">10 USDT</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                  <p className="text-red-400 text-sm">
+                    ⚠️ USDT deposits cannot be withdrawn. Only CMEME withdrawals allowed.
+                  </p>
+                </div>
+                <p className="text-gray-400 text-sm">Transaction will be auto-verified within 10 minutes.</p>
+                <button
+                  onClick={() => {
+                    setFundType(null)
+                    setFundModalOpen(false)
+                  }}
+                  className="w-full py-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold transition-colors"
+                >
+                  Close
                 </button>
               </div>
             )}
@@ -457,21 +520,33 @@ export default function Dashboard() {
             </div>
 
             <div className="p-6 space-y-4">
-              <input
-                type="text"
-                placeholder="Recipient UID"
-                className="w-full px-4 py-3 rounded-xl bg-gray-700/50 border border-gray-600 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-              <input
-                type="number"
-                placeholder="Amount"
-                className="w-full px-4 py-3 rounded-xl bg-gray-700/50 border border-gray-600 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-              <button
-                onClick={() => setSendModalOpen(false)}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:from-purple-600 hover:to-pink-600 transition-all"
-              >
-                Send
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Recipient Address</label>
+                <input
+                  type="text"
+                  placeholder="Enter wallet address or UID"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">Amount (CMEME)</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                />
+                <p className="text-xs text-gray-400">Available: {userData.totalBalance} CMEME</p>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                <p className="text-blue-400 text-sm">
+                  ℹ️ Only CMEME tokens can be sent. USDT transfers are not available.
+                </p>
+              </div>
+
+              <button className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all shadow-lg">
+                Send Tokens
               </button>
             </div>
           </div>
