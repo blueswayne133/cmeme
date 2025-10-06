@@ -1,36 +1,117 @@
-"use client"
-
-import { useState } from "react"
-import { useNavigate } from "react-router-dom" // Add this import
+// pages/AuthPage.jsx
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { loginSchema, signupSchema } from "../utils/validationSchemas";
+import api from "../utils/api.js";
+import { getUserFromLocalStorage } from "../utils/localStorage";
 
 export default function AuthPage() {
-  const [activeTab, setActiveTab] = useState("login")
-  const [formData, setFormData] = useState({
-    email: "",
-    username: "",
-    password: "",
-    referralCode: "",
-  })
+  const [activeTab, setActiveTab] = useState("login");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  const navigate = useNavigate();
 
-  const navigate = useNavigate() // Add this hook
-
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    })
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (activeTab === "login") {
-      console.log("Login submitted:", { username: formData.username, password: formData.password })
-      navigate("/dashboard") // Move navigate here after form submission
-    } else {
-      console.log("Register submitted:", formData)
-      navigate("/dashboard") // Also add for register
+  // Redirect if already logged in
+  useEffect(() => {
+    const user = getUserFromLocalStorage();
+    const token = localStorage.getItem('authToken');
+    if (user && token) {
+      navigate('/dashboard');
     }
-  }
+  }, [navigate]);
+
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+    resolver: yupResolver(activeTab === "login" ? loginSchema : signupSchema),
+    mode: "onChange"
+  });
+
+  const onSubmit = async (data) => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      let response;
+      
+      if (activeTab === "login") {
+        response = await api.post('/login', {
+          login: data.login,
+          password: data.password
+        });
+        setSuccess("Login successful! Redirecting...");
+      } else {
+        response = await api.post('/register', {
+          username: data.username,
+          email: data.email,
+          password: data.password,
+          password_confirmation: data.confirmPassword,
+          firstname: data.firstname,
+          lastname: data.lastname,
+          referral_code: data.referralCode || null
+        });
+        setSuccess("Registration successful! Redirecting...");
+      }
+
+      console.log('API Response:', response.data);
+
+      
+
+      // Handle both response structures for compatibility
+      const responseData = response.data.data ;
+      
+      if (!responseData) {
+        throw new Error('Invalid response structure from server');
+      }
+
+      const user = responseData.user;
+      const token = responseData.token;
+
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+      
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userData', JSON.stringify(user));
+      
+      // Add a small delay to show success message
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Auth error:', err);
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          err.message ||
+                          'An error occurred during authentication';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setError("");
+    setSuccess("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    reset();
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#2b014d] via-[#4a0976] to-[#5a1d85] p-4 font-['Poppins',sans-serif]">
@@ -59,7 +140,7 @@ export default function AuthPage() {
           {/* Tabs */}
           <div className="flex bg-[#1a1a2e] rounded-lg mb-6">
             <button
-              onClick={() => setActiveTab("login")}
+              onClick={() => switchTab("login")}
               className={`flex-1 py-2.5 font-medium transition-all rounded-lg ${
                 activeTab === "login"
                   ? "bg-black text-white"
@@ -69,7 +150,7 @@ export default function AuthPage() {
               Login
             </button>
             <button
-              onClick={() => setActiveTab("register")}
+              onClick={() => switchTab("register")}
               className={`flex-1 py-2.5 font-medium transition-all rounded-lg ${
                 activeTab === "register"
                   ? "bg-black text-white"
@@ -80,126 +161,228 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm">
+              {success}
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {activeTab === "login" && (
               <>
-                {/* Username */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Username</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      placeholder="Enter your username"
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-                      required
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-gray-200 rounded-full"></div>
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Password</label>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Email or Username
+                  </label>
                   <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Enter your password"
+                    type="text"
+                    {...register("login")}
                     className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-                    required
+                    placeholder="Enter your email or username"
                   />
+                  {errors.login && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.login.message}</p>
+                  )}
                 </div>
 
-                {/* Login Button */}
+                <div className="relative">
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Password
+                  </label>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    {...register("password")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition"
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m9.02 9.02l3.83 3.83M15.828 15.828l3.83-3.83" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  {errors.password && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.password.message}</p>
+                  )}
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg disabled:opacity-50"
                 >
-                  Login
+                  {loading ? "Signing in..." : "Login"}
                 </button>
               </>
             )}
 
             {activeTab === "register" && (
               <>
-                {/* Email */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Email</label>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("firstname")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
+                    placeholder="Enter your first name"
+                  />
+                  {errors.firstname && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.firstname.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register("lastname")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
+                    placeholder="Enter your last name"
+                  />
+                  {errors.lastname && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.lastname.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Email
+                  </label>
                   <input
                     type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
+                    {...register("email")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                     placeholder="Enter your email"
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-                    required
                   />
+                  {errors.email && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.email.message}</p>
+                  )}
                 </div>
 
-                {/* Username */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Username</label>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Username
+                  </label>
                   <input
                     type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
+                    {...register("username")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                     placeholder="Choose a username"
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-                    required
                   />
+                  {errors.username && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.username.message}</p>
+                  )}
                 </div>
 
-                {/* Password */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Password</label>
+                <div className="relative">
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Password
+                  </label>
                   <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
+                    type={showPassword ? "text" : "password"}
+                    {...register("password")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
                     placeholder="Create a password"
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
-                    required
                   />
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition"
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m9.02 9.02l3.83 3.83M15.828 15.828l3.83-3.83" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  {errors.password && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.password.message}</p>
+                  )}
                 </div>
 
-                {/* Referral Code */}
+                <div className="relative">
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Confirm Password
+                  </label>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    {...register("confirmPassword")}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
+                    placeholder="Confirm your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleConfirmPasswordVisibility}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition"
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m9.02 9.02l3.83 3.83M15.828 15.828l3.83-3.83" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  {errors.confirmPassword && (
+                    <p className="mt-1 text-red-400 text-sm">{errors.confirmPassword.message}</p>
+                  )}
+                </div>
+
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Referral Code (Optional)</label>
+                  <label className="block text-white text-sm font-medium mb-2">
+                    Referral Code (Optional)
+                  </label>
                   <input
                     type="text"
-                    name="referralCode"
-                    value={formData.referralCode}
-                    onChange={handleInputChange}
-                    placeholder="Enter referral code if you have one"
+                    {...register("referralCode")}
                     className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
+                    placeholder="Enter referral code if any"
                   />
                 </div>
 
-                {/* Register Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg disabled:opacity-50"
                 >
-                  Create Account
+                  {loading ? "Creating Account..." : "Create Account"}
                 </button>
               </>
             )}
           </form>
-
-          {/* Demo Text */}
-          <p className="text-center text-gray-300 mt-5 text-sm">
-            Demo account: username=<span className="font-semibold">demo</span>, password=
-            <span className="font-semibold">demo123</span>
-          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
