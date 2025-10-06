@@ -10,8 +10,6 @@ import { getUserFromLocalStorage } from "../utils/localStorage";
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
@@ -31,75 +29,124 @@ export default function AuthPage() {
     mode: "onChange"
   });
 
-  const onSubmit = async (data) => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
+  const showToast = (message, type = 'info') => {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.custom-toast');
+    existingToasts.forEach(toast => toast.remove());
 
-    try {
-      let response;
-      
-      if (activeTab === "login") {
-        response = await api.post('/login', {
-          login: data.login,
-          password: data.password
-        });
-        setSuccess("Login successful! Redirecting...");
-      } else {
-        response = await api.post('/register', {
-          username: data.username,
-          email: data.email,
-          password: data.password,
-          password_confirmation: data.confirmPassword,
-          firstname: data.firstname,
-          lastname: data.lastname,
-          referral_code: data.referralCode || null
-        });
-        setSuccess("Registration successful! Redirecting...");
-      }
-
-      console.log('API Response:', response.data);
-
-      
-
-      // Handle both response structures for compatibility
-      const responseData = response.data.data ;
-      
-      if (!responseData) {
-        throw new Error('Invalid response structure from server');
-      }
-
-      const user = responseData.user;
-      const token = responseData.token;
-
-      if (!token) {
-        throw new Error('No token received from server');
-      }
-      
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('userData', JSON.stringify(user));
-      
-      // Add a small delay to show success message
+    const toast = document.createElement('div');
+    toast.className = `custom-toast fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg border-l-4 transform transition-all duration-300 ${
+      type === 'error' 
+        ? 'bg-red-500/20 border-red-500 text-red-400' 
+        : 'bg-green-500/20 border-green-500 text-green-400'
+    }`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+      toast.style.transform = 'translateX(0)';
+    }, 10);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      toast.style.transform = 'translateX(100%)';
       setTimeout(() => {
-        navigate("/dashboard", { replace: true });
-      }, 1000);
-      
-    } catch (err) {
-      console.error('Auth error:', err);
-      const errorMessage = err.response?.data?.message || 
-                          err.response?.data?.error || 
-                          err.message ||
-                          'An error occurred during authentication';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 5000);
   };
+
+const onSubmit = async (data) => {
+  setLoading(true);
+
+  try {
+    let response;
+    
+    if (activeTab === "login") {
+      response = await api.post('/login', {
+        login: data.login,
+        password: data.password
+      });
+      showToast("Login successful! Redirecting...", "success");
+    } else {
+      console.log('Registration data:', {
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        password_confirmation: data.confirmPassword,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        referral_code: data.referralCode || null
+      });
+
+      response = await api.post('/register', {
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        password_confirmation: data.confirmPassword,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        referral_code: data.referralCode || null
+      });
+      showToast("Registration successful! Redirecting...", "success");
+    }
+
+    console.log('API Response:', response.data);
+
+    const responseData = response.data.data;
+    
+    if (!responseData) {
+      throw new Error('Invalid response structure from server');
+    }
+
+    const user = responseData.user;
+    const token = responseData.token;
+
+    if (!token) {
+      throw new Error('No token received from server');
+    }
+    
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userData', JSON.stringify(user));
+    
+    setTimeout(() => {
+      navigate("/dashboard", { replace: true });
+    }, 1000);
+    
+  } catch (err) {
+    console.error('🔥 FULL AUTH ERROR:', err);
+    console.error('🔥 Error response:', err.response);
+    console.error('🔥 Error data:', err.response?.data);
+    console.error('🔥 Error status:', err.response?.status);
+    console.error('🔥 Error headers:', err.response?.headers);
+    
+    // Enhanced error handling
+    if (err.response?.status === 422 && err.response?.data?.errors) {
+      const validationErrors = err.response.data.errors;
+      console.error('🔥 Validation errors:', validationErrors);
+      
+      // Format all validation errors
+      const errorMessages = Object.entries(validationErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      
+      showToast(`Validation failed: ${errorMessages}`, "error");
+    } else if (err.response?.data?.message) {
+      showToast(err.response.data.message, "error");
+    } else {
+      showToast(err.message || 'An error occurred during authentication', "error");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const switchTab = (tab) => {
     setActiveTab(tab);
-    setError("");
-    setSuccess("");
     setShowPassword(false);
     setShowConfirmPassword(false);
     reset();
@@ -160,20 +207,6 @@ export default function AuthPage() {
               Register
             </button>
           </div>
-
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm">
-              {success}
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-              {error}
-            </div>
-          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
