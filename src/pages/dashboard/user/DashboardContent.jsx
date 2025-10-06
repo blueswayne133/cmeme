@@ -12,7 +12,7 @@ const DashboardContent = () => {
     streak: 2
   });
   const [loading, setLoading] = useState(false);
-  const { userData, refetchUserData, setSendModalOpen, setFundModalOpen, timeRemaining } = useOutletContext();
+  const { userData, refetchUserData, setSendModalOpen, setFundModalOpen, setWithdrawModalOpen, timeRemaining } = useOutletContext();
 
   // Remove API call since endpoint doesn't exist
   // useEffect(() => {
@@ -82,40 +82,37 @@ const DashboardContent = () => {
   return (
     <div className="space-y-6">
      
-
       {/* Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Token Balance */}
-<div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-  <p className="text-gray-400 text-sm mb-2">Total Balance</p>
-  <div className="flex items-baseline gap-2">
-    <span className="text-4xl font-bold text-gray-100">
-      {userData?.token_balance || userData?.totalBalance || '0.00'}
-    </span>
-    <span className="text-xl font-semibold text-yellow-400">MTK</span>
-  </div>
-  
-  {/* USD Equivalent */}
-  <p className="text-gray-400 text-sm mt-2">
-    ≈ $
-    {(
-      (userData?.token_balance || userData?.totalBalance || 0) * 2
-    ).toFixed(2)}
-  </p>
-</div>
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-2">Total Balance</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-bold text-gray-100">
+              {userData?.token_balance || userData?.totalBalance || '0.00'}
+            </span>
+            <span className="text-xl font-semibold text-yellow-400">MTK</span>
+          </div>
+          
+          {/* USD Equivalent */}
+          <p className="text-gray-400 text-sm mt-2">
+            ≈ $
+            {(
+              (userData?.token_balance || userData?.totalBalance || 0) * 2
+            ).toFixed(2)}
+          </p>
+        </div>
 
-
-      {/* USDC Balance */}
-<div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-  <p className="text-gray-400 text-sm mb-2">Total USDC</p>
-  <div className="flex items-baseline gap-2">
-    <span className="text-4xl font-bold text-gray-100">
-      ${userData?.usdc_balance?.toFixed(2) || '0.00'}
-    </span>
-    <span className="text-xl font-semibold text-blue-400">USDC</span>
-  </div>
-</div>
-
+        {/* USDC Balance */}
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-2">Total USDC</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-bold text-gray-100">
+              ${userData?.usdc_balance?.toFixed(2) || '0.00'}
+            </span>
+            <span className="text-xl font-semibold text-blue-400">USDC</span>
+          </div>
+        </div>
       </div>
 
       {/* Action Buttons */}

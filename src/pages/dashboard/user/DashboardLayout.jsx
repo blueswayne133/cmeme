@@ -29,6 +29,8 @@ const DashboardLayout = () => {
   const [copied, setCopied] = useState(false);
   const [fundModalOpen, setFundModalOpen] = useState(false);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [fundType, setFundType] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState("23:56:35");
   const navigate = useNavigate();
@@ -358,6 +360,107 @@ const DashboardLayout = () => {
     );
   };
 
+  // Withdraw Modal content
+  const renderWithdrawModal = () => {
+    if (!withdrawModalOpen) return null;
+
+    const minWithdrawal = 5;
+    const gasFee = 1.5;
+    const availableUSDC = userData?.usdc_balance || 0;
+    const netAmount = (parseFloat(withdrawAmount) || 0) - gasFee;
+    const isValid = (parseFloat(withdrawAmount) || 0) >= minWithdrawal && netAmount > 0;
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={() => setWithdrawModalOpen(false)}
+      >
+        <div
+          className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-700">
+            <h2 className="text-xl font-bold text-gray-100">Withdraw USDC</h2>
+            <button
+              onClick={() => setWithdrawModalOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            {/* Available Balance */}
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+              <p className="text-gray-400 text-sm mb-1">Available Balance</p>
+              <p className="text-2xl font-bold text-gray-100">${availableUSDC.toFixed(2)} USDC</p>
+            </div>
+
+            {/* Amount Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Withdrawal Amount (USDC)</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400/50"
+              />
+              <p className="text-xs text-gray-400">
+                Minimum withdrawal: ${minWithdrawal} USDC
+              </p>
+            </div>
+
+            {/* Fee Breakdown */}
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Withdrawal Amount:</span>
+                <span className="text-gray-200">${(parseFloat(withdrawAmount) || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Gas Fee:</span>
+                <span className="text-red-400">-${gasFee.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-gray-700 pt-2">
+                <span className="text-gray-300 font-medium">You Receive:</span>
+                <span className={`font-bold ${netAmount > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                  ${netAmount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Warning Message */}
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+              <p className="text-yellow-400 text-sm">
+                ⚠️ Withdrawals may take 10-30 minutes to process on the blockchain
+              </p>
+            </div>
+
+            {/* Withdraw Button */}
+            <button 
+              onClick={() => {
+                if (isValid) {
+                  // Handle withdrawal logic here
+                  alert(`Withdrawal initiated: $${withdrawAmount} USDC`);
+                  setWithdrawModalOpen(false);
+                  setWithdrawAmount("");
+                }
+              }}
+              disabled={!isValid}
+              className={`w-full py-3 rounded-xl font-semibold transition-all shadow-lg ${
+                isValid 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white cursor-pointer'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isValid ? 'Confirm Withdrawal' : 'Enter Valid Amount'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
@@ -443,9 +546,25 @@ const DashboardLayout = () => {
                 <span>Connect Wallet</span>
               </button>
               
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium">
-                <Lock size={20} />
-                <span>Withdraw Tokens</span>
+              {/* USDC Withdrawal - Enabled */}
+              <button 
+                onClick={() => setWithdrawModalOpen(true)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all font-medium"
+              >
+                <div className="flex items-center gap-3">
+                  <Download size={20} />
+                  <span>Withdraw USDC</span>
+                </div>
+                <span className="text-xs bg-green-500/30 px-2 py-1 rounded">Available</span>
+              </button>
+
+              {/* CMEME Withdrawal - Locked */}
+              <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                <div className="flex items-center gap-3">
+                  <Lock size={20} />
+                  <span>Withdraw CMEME</span>
+                </div>
+                <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
               </button>
 
               {/* Staking Options */}
@@ -563,9 +682,28 @@ const DashboardLayout = () => {
                     <span>Connect Wallet</span>
                   </button>
                   
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium">
-                    <Lock size={20} />
-                    <span>Withdraw Tokens</span>
+                  {/* USDC Withdrawal - Enabled */}
+                  <button 
+                    onClick={() => {
+                      setWithdrawModalOpen(true);
+                      setSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all font-medium"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Download size={20} />
+                      <span>Withdraw USDC</span>
+                    </div>
+                    <span className="text-xs bg-green-500/30 px-2 py-1 rounded">Available</span>
+                  </button>
+
+                  {/* CMEME Withdrawal - Locked */}
+                  <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                    <div className="flex items-center gap-3">
+                      <Lock size={20} />
+                      <span>Withdraw CMEME</span>
+                    </div>
+                    <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                   </button>
 
                   {/* Staking Options */}
@@ -643,6 +781,7 @@ const DashboardLayout = () => {
             refetchUserData: fetchUserData,
             setSendModalOpen,
             setFundModalOpen,
+            setWithdrawModalOpen,
             timeRemaining
           }} />
         </main>
@@ -651,6 +790,7 @@ const DashboardLayout = () => {
       {/* Modals */}
       {renderFundModal()}
       {renderSendModal()}
+      {renderWithdrawModal()}
     </div>
   );
 };
