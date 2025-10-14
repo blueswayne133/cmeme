@@ -116,7 +116,7 @@ const ReferralsPage = () => {
               </p>
               <h2 className="text-3xl font-bold text-gray-100 mt-2">
                 {userData?.referral_token_balance || userData?.totalBalance || '0.00'}
-                <span className="text-xl font-semibold text-yellow-400"> MTK</span>
+                <span className="text-xl font-semibold text-yellow-400"> CMEME</span>
               </h2>
             </div>
          
@@ -175,55 +175,66 @@ const ReferralsPage = () => {
         </p>
       </div>
 
-      {/* ==== Referrals Table ==== */}
-      <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
-        <h3 className="text-lg font-bold text-gray-100 mb-4">Your Referrals</h3>
+  {/* ==== Referrals Table ==== */}
+<div className="bg-gray-800/50 rounded-2xl p-4 sm:p-6 border border-gray-700/50">
+  <h3 className="text-base sm:text-lg font-bold text-gray-100 mb-4">Your Referrals</h3>
 
-        {referralData.referrals.data.length > 0 ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-4 gap-4 text-sm text-gray-400 font-medium px-4">
-              <span>Username</span>
-              <span>Email</span>
-              <span>Joined</span>
-            </div>
-
-            {referralData.referrals.data.map((ref) => (
-              <div key={ref.id} className="grid grid-cols-4 gap-3 bg-gray-900/30 rounded-xl p-4 border border-gray-700/30 hover:border-gray-600/50 transition">
-                <span className="text-gray-200 font-medium">{ref.username}</span>
-                <span className="text-gray-300 text-sm">{ref.email}</span>
-                <span className="text-gray-400 text-sm">{formatDate(ref.created_at)}</span>
-              </div>
-            ))}
-
-            {/* Pagination */}
-            {referralData.referrals.last_page > 1 && (
-              <div className="flex justify-center gap-2 mt-6 flex-wrap">
-                {Array.from({ length: referralData.referrals.last_page }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => fetchReferralStats(page)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                      page === referralData.referrals.current_page
-                        ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Users size={64} className="text-gray-600 mx-auto mb-4" />
-            <h4 className="text-xl font-bold text-gray-300 mb-2">No Referrals Yet</h4>
-            <p className="text-gray-400 max-w-md mx-auto">
-              Share your referral code with friends to start earning rewards!
-            </p>
-          </div>
-        )}
+  {referralData.referrals.data.length > 0 ? (
+    <div className="space-y-4">
+      {/* Table Header */}
+      <div className="hidden sm:grid sm:grid-cols-4 gap-4 text-xs sm:text-sm text-gray-400 font-medium px-2 sm:px-4">
+        <span>Username</span>
+        <span>Joined</span>
       </div>
+
+      {/* Table Items */}
+      {referralData.referrals.data.map((ref) => (
+        <div
+          key={ref.id}
+          className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 bg-gray-900/30 rounded-xl p-3 sm:p-4 border border-gray-700/30 hover:border-gray-600/50 transition"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between sm:col-span-2">
+            <span className="text-gray-400 text-xs sm:hidden">Username</span>
+            <span className="text-gray-200 font-medium break-words">{ref.username}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between sm:col-span-2">
+            <span className="text-gray-400 text-xs sm:hidden">Joined</span>
+            <span className="text-gray-400 text-sm">{formatDate(ref.created_at)}</span>
+          </div>
+        </div>
+      ))}
+
+      {/* Pagination */}
+      {referralData.referrals.last_page > 1 && (
+        <div className="flex justify-center gap-2 mt-6 flex-wrap">
+          {Array.from({ length: referralData.referrals.last_page }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => fetchReferralStats(page)}
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-medium transition-all ${
+                page === referralData.referrals.current_page
+                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="text-center py-8">
+      <Users size={48} className="text-gray-600 mx-auto mb-4 sm:size-16" />
+      <h4 className="text-lg sm:text-xl font-bold text-gray-300 mb-2">No Referrals Yet</h4>
+      <p className="text-gray-400 text-sm sm:text-base max-w-md mx-auto px-4">
+        Share your referral code with friends to start earning rewards!
+      </p>
+    </div>
+  )}
+</div>
+
     </div>
   )
 }

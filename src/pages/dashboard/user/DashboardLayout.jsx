@@ -17,6 +17,7 @@ import {
   Copy,
   Check,
   Lock,
+  FileText,
   Download,
   Link,
 } from "lucide-react";
@@ -140,9 +141,11 @@ const DashboardLayout = () => {
 
   const mainNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home },
+    { path: '/dashboard/kyc', label: 'KYC Verification', icon: FileText },
     { path: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { path: '/dashboard/referrals', label: 'Referrals', icon: Users },
     { path: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy },
+   
   ];
 
   const walletNavItems = [
@@ -497,7 +500,7 @@ const DashboardLayout = () => {
                     ) : (
                       <Copy size={12} className="text-gray-400" />
                     )}
-                  </button>
+                  </button> 
                 </div>
               </div>
             </div>

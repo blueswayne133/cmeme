@@ -1,5 +1,6 @@
 import React from "react"
 import { useNavigate } from "react-router-dom"
+import logo from "../assets/logo.jpg.png"
 
 const HomePage = () => {
     const navigate = useNavigate()
@@ -8,10 +9,10 @@ const HomePage = () => {
       {/* Hero Section */}
       <div className="px-4 pt-12 pb-8 text-center">
         <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-          MyToken
+          CMEME  Token
         </h1>
         <p className="text-gray-300 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-          Start mining crypto rewards daily. Join thousands of miners earning MTK tokens.
+          Start mining crypto rewards daily. Join thousands of miners earning CMEME tokens.
         </p>
       </div>
 
@@ -21,9 +22,15 @@ const HomePage = () => {
           {/* Coin Icon */}
           <div className="flex justify-center mb-6">
             <div className="relative w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"/>
-              </svg>
+           <div className="flex justify-center mb-6">
+  <img 
+      src={logo} 
+      alt="MyToken Logo" 
+      className="w-14 h-14 object-contain rounded-full bg-white/10"
+    />
+  
+</div>
+
             </div>
           </div>
 
@@ -32,7 +39,7 @@ const HomePage = () => {
           </h2>
           
           <p className="text-gray-400 text-center mb-8 leading-relaxed">
-            Claim 50 MTK tokens every 24 hours. Build your streak and maximize your earnings.
+            Claim 50 CMEME tokens every 24 hours. Build your streak and maximize your earnings.
           </p>
 
             <button 

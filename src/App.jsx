@@ -12,6 +12,7 @@ import ReferralsPage from './pages/dashboard/user/ReferralsPage';
 import LeaderboardPage from './pages/dashboard/user/LeaderboardPage';
 import WalletPage from './pages/dashboard/user/WalletPage';
 import P2PTradePage from './pages/dashboard/user/P2PTradePage';
+import KycPage from './pages/dashboard/user/KycPage';
 
 const App = () => {
   return (
@@ -38,6 +39,7 @@ const App = () => {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="wallet" element={<WalletPage />} />
           <Route path="p2p" element={<P2PTradePage />} />
+           <Route path="kyc" element={<KycPage />} />
         </Route>
 
         {/* 🛑 Fallback route for undefined paths */}
