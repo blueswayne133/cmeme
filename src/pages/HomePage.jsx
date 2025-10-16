@@ -19,20 +19,17 @@ const HomePage = () => {
       {/* Main CTA Card */}
       <div className="px-4 pb-8">
         <div className="max-w-lg mx-auto bg-gray-900 rounded-3xl p-8 border border-gray-800">
-          {/* Coin Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="relative w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-           <div className="flex justify-center mb-6">
-  <img 
-      src={logo} 
-      alt="MyToken Logo" 
-      className="w-14 h-14 object-contain rounded-full bg-white/10"
+              {/* Coin Icon */}
+<div className="flex justify-center mb-6">
+  <div className="relative w-24 h-24 rounded-full overflow-hidden">
+    <img
+      src={logo}
+      alt="MyToken Logo"
+      className="w-full h-full object-cover rounded-full"
     />
-  
+  </div>
 </div>
 
-            </div>
-          </div>
 
           <h2 className="text-3xl font-bold text-center mb-4">
             Start Mining Today
