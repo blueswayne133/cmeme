@@ -20,6 +20,9 @@ import {
   FileText,
   Download,
   Link,
+  ArrowUpDown,
+  Clock,
+  BarChart3,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -89,6 +92,8 @@ const DashboardLayout = () => {
         miningProgress: 0,
         dailyReward: 50,
         streak: 2,
+        referral_code: responseData.user.referral_code || 'N/A',
+        p2p_success_rate: responseData.user.p2p_success_rate || 100,
       };
 
       setUserData(normalizedUser);
@@ -115,6 +120,8 @@ const DashboardLayout = () => {
           token_balance: 100,
           usdc_balance: 10.0,
           is_verified: false,
+          referral_code: "cmemeAB",
+          p2p_success_rate: 100,
         });
       }
     } finally {
@@ -123,6 +130,7 @@ const DashboardLayout = () => {
   };
 
   const handleCopy = (text) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -145,13 +153,17 @@ const DashboardLayout = () => {
     { path: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { path: '/dashboard/referrals', label: 'Referrals', icon: Users },
     { path: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy },
-   
   ];
 
   const walletNavItems = [
     { path: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { path: '/dashboard/history', label: 'History', icon: History },
-    { path: '/dashboard/p2p', label: 'P2P Trade', icon: Users },
+  ];
+
+  const p2pNavItems = [
+    { path: '/dashboard/p2p', label: 'P2P Trading', icon: ArrowUpDown },
+    { path: '/dashboard/p2p/active', label: 'Active Trades', icon: Clock },
+    { path: '/dashboard/p2p/history', label: 'P2P History', icon: BarChart3 },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -529,6 +541,16 @@ const DashboardLayout = () => {
               ))}
             </div>
 
+            {/* P2P Trading */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
+                P2P Trading
+              </h3>
+              {p2pNavItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </div>
+
             {/* Wallet & Trading */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
@@ -661,6 +683,16 @@ const DashboardLayout = () => {
                     Main
                   </h3>
                   {mainNavItems.map((item) => (
+                    <NavItem key={item.path} item={item} />
+                  ))}
+                </div>
+
+                {/* P2P Trading */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
+                    P2P Trading
+                  </h3>
+                  {p2pNavItems.map((item) => (
                     <NavItem key={item.path} item={item} />
                   ))}
                 </div>
