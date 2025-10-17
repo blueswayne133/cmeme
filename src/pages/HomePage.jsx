@@ -36,7 +36,7 @@ const HomePage = () => {
           </h2>
           
           <p className="text-gray-400 text-center mb-8 leading-relaxed">
-            Claim 50 CMEME tokens every 24 hours. Build your streak and maximize your earnings.
+            Claim 1 CMEME tokens every 24 hours. Build your streak and maximize your earnings.
           </p>
 
             <button 
