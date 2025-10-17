@@ -784,7 +784,7 @@ const DashboardLayout = () => {
               </button>
 
               <div>
-                <h1 className="text-xl font-bold text-yellow-400">MyToken</h1>
+                <h1 className="text-xl font-bold text-yellow-400">CMEME Token</h1>
                 <p className="text-xs text-gray-400">Mining Platform</p>
               </div>
             </div>
