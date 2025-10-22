@@ -153,11 +153,13 @@ const DashboardLayout = () => {
     { path: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { path: '/dashboard/referrals', label: 'Referrals', icon: Users },
     { path: '/dashboard/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { path: '/dashboard/about', label: 'About Us', icon: Users },
   ];
 
   const walletNavItems = [
     { path: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { path: '/dashboard/history', label: 'History', icon: History },
+    { path: '/dashboard/wallet', label: 'Connect Wallet', icon: Link },
   ];
 
   const p2pNavItems = [
@@ -561,15 +563,11 @@ const DashboardLayout = () => {
               ))}
             </div>
 
-            {/* Staking & Connections */}
+            {/* Staking & Withdrawals */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
-                Staking & Connections
+                Staking & Withdrawals
               </h3>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-800/50 transition-all font-medium">
-                <Link size={20} />
-                <span>Connect Wallet</span>
-              </button>
               
               {/* USDC Withdrawal - Enabled */}
               <button 
@@ -707,15 +705,11 @@ const DashboardLayout = () => {
                   ))}
                 </div>
 
-                {/* Staking & Connections */}
+                {/* Staking & Withdrawals */}
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
-                    Staking & Connections
+                    Staking & Withdrawals
                   </h3>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:bg-gray-800/50 transition-all font-medium">
-                    <Link size={20} />
-                    <span>Connect Wallet</span>
-                  </button>
                   
                   {/* USDC Withdrawal - Enabled */}
                   <button 

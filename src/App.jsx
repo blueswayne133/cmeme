@@ -15,6 +15,7 @@ import P2PTradePage from './pages/dashboard/user/P2PTradePage';
 import ActiveTradesPage from './pages/dashboard/user/ActiveTradesPage';
 import P2PHistoryPage from './pages/dashboard/user/P2PHistoryPage';
 import KycPage from './pages/dashboard/user/KycPage';
+import AboutUsPage from './pages/dashboard/user/AboutUsPage';
 
 const App = () => {
   return (
@@ -45,6 +46,7 @@ const App = () => {
           <Route path="p2p/active" element={<ActiveTradesPage />} />
           <Route path="p2p/history" element={<P2PHistoryPage />} />
           <Route path="kyc" element={<KycPage />} />
+          <Route path="about" element={<AboutUsPage />} />
         </Route>
 
         {/* 🛑 Fallback route for undefined paths */}
@@ -54,4 +56,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default App; 
