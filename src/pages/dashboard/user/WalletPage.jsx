@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { Wallet, Check, Copy, ExternalLink, AlertCircle, RefreshCw } from "lucide-react";
 import api from "../../../utils/api";
+import toast from 'react-hot-toast';
 
 const WalletPage = () => {
   const [walletAddress, setWalletAddress] = useState("");
@@ -26,6 +27,7 @@ const WalletPage = () => {
       }
     } catch (error) {
       console.error('Error fetching wallet status:', error);
+      toast.error('Failed to fetch wallet status');
     }
   };
 
@@ -33,12 +35,12 @@ const WalletPage = () => {
     e.preventDefault();
     
     if (!walletAddress.trim()) {
-      alert('Please enter your wallet address');
+      toast.error('Please enter your wallet address');
       return;
     }
 
     if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
-      alert('Please enter a valid Base Network wallet address (0x followed by 40 characters)');
+      toast.error('Please enter a valid Base Network wallet address (0x followed by 40 characters)');
       return;
     }
 
@@ -52,14 +54,14 @@ const WalletPage = () => {
           wallet_address: walletAddress,
           network: 'base'
         });
-        alert('Wallet address updated successfully!');
+        toast.success('Wallet address updated successfully!');
       } else {
         // Connect new wallet
         await api.post('/wallet/connect', {
           wallet_address: walletAddress,
           network: 'base'
         });
-        alert('Wallet connected successfully! You can now claim your bonus.');
+        toast.success('Wallet connected successfully! You can now claim your 0.5 CMEME bonus in the Tasks section.');
       }
 
       await refetchUserData();
@@ -70,23 +72,7 @@ const WalletPage = () => {
       
     } catch (error) {
       console.error('Error with wallet operation:', error);
-      alert(error.response?.data?.message || 'Failed to process wallet operation');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClaimBonus = async () => {
-    try {
-      setLoading(true);
-      await api.post('/wallet/claim-bonus');
-      await refetchUserData();
-      await fetchWalletStatus();
-      alert('2500 CMEME bonus claimed successfully!');
-      navigate('/dashboard/tasks');
-    } catch (error) {
-      console.error('Error claiming bonus:', error);
-      alert(error.response?.data?.message || 'Failed to claim bonus');
+      toast.error(error.response?.data?.message || 'Failed to process wallet operation');
     } finally {
       setLoading(false);
     }
@@ -96,6 +82,7 @@ const WalletPage = () => {
     if (walletStatus?.wallet_address) {
       navigator.clipboard.writeText(walletStatus.wallet_address);
       setCopied(true);
+      toast.success('Wallet address copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -122,7 +109,7 @@ const WalletPage = () => {
           <p className="text-gray-400">
             {isConnected 
               ? 'Your Base Network wallet is successfully connected' 
-              : 'Connect your Base Network wallet to earn 2500 bonus CMEME tokens'
+              : 'Connect your Base Network wallet to earn 0.5 bonus CMEME tokens'
             }
           </p>
         </div>
@@ -166,7 +153,7 @@ const WalletPage = () => {
               ) : (
                 <div className="flex items-center justify-center gap-2">
                   {hasExistingWallet ? <RefreshCw size={20} /> : <Wallet size={20} />}
-                  {hasExistingWallet ? 'Update Wallet' : 'Connect Wallet (+2500 CMEME Bonus)'}
+                  {hasExistingWallet ? 'Update Wallet' : 'Connect Wallet (+0.5 CMEME Bonus)'}
                 </div>
               )}
             </button>
@@ -181,7 +168,7 @@ const WalletPage = () => {
                 <ul className="text-blue-300 text-sm space-y-1">
                   <li>• Only Base Network addresses are supported</li>
                   <li>• You can only connect one wallet address</li>
-                  <li>• You'll earn 2500 bonus CMEME tokens for connecting</li>
+                  <li>• You'll earn 0.5 bonus CMEME tokens for connecting</li>
                   <li>• After connecting, claim your bonus in the Tasks section</li>
                   <li>• You can update your wallet address anytime</li>
                 </ul>
@@ -233,7 +220,7 @@ const WalletPage = () => {
                   <span className={`font-semibold ${
                     walletStatus?.wallet_bonus_claimed ? 'text-green-400' : 'text-yellow-400'
                   }`}>
-                    {walletStatus?.wallet_bonus_claimed ? 'Bonus Claimed' : 'Bonus Available'}
+                    {walletStatus?.wallet_bonus_claimed ? 'Bonus Claimed' : 'Bonus Available in Tasks'}
                   </span>
                 </div>
                 
@@ -248,14 +235,13 @@ const WalletPage = () => {
                 </div>
               </div>
 
+              {/* Removed the claim bonus button - claiming is now done in Tasks */}
               {!walletStatus?.wallet_bonus_claimed && (
-                <button
-                  onClick={handleClaimBonus}
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-                >
-                  {loading ? 'Claiming...' : 'Claim 2500 CMEME Bonus'}
-                </button>
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                  <p className="text-yellow-400 text-sm text-center">
+                    Go to <strong>Tasks</strong> section to claim your 0.5 CMEME bonus
+                  </p>
+                </div>
               )}
             </div>
           ) : (

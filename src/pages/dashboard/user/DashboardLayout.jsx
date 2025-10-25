@@ -34,11 +34,54 @@ const DashboardLayout = () => {
   const [fundModalOpen, setFundModalOpen] = useState(false);
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [depositConfirmModalOpen, setDepositConfirmModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [transactionHash, setTransactionHash] = useState("");
+  const [fromWallet, setFromWallet] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [sendDescription, setSendDescription] = useState("");
   const [fundType, setFundType] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState("23:56:35");
+  
+  // Avatar Modal States
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState("adventurer");
+  
+  // Toast State
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  // List of available DiceBear avatar styles
+  const avatarStyles = [
+    "adventurer",
+    "adventurer-neutral",
+    "bottts",
+    "fun-emoji",
+    "identicon",
+    "micah",
+    "pixel-art",
+    "pixel-art-neutral",
+    "rings",
+    "shapes",
+    "thumbs",
+  ];
+
+  // Generate avatar URL using DiceBear
+  const generateAvatarUrl = (username, style) => {
+    const seed = encodeURIComponent(username || "guest");
+    return `https://api.dicebear.com/9.x/${style}/svg?seed=${seed}`;
+  };
+
+  // Toast notification function
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
+  };
 
   useEffect(() => {
     const user = getUserFromLocalStorage();
@@ -70,7 +113,15 @@ const DashboardLayout = () => {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeRemaining])
+  }, [timeRemaining]);
+
+  // Auto-assign default avatar on first load if none exists
+  useEffect(() => {
+    if (userData && !userData.avatar_url && userData.username) {
+      const defaultUrl = generateAvatarUrl(userData.username, "adventurer");
+      setSelectedAvatar(defaultUrl);
+    }
+  }, [userData]);
 
   const fetchUserData = async () => {
     try {
@@ -94,9 +145,11 @@ const DashboardLayout = () => {
         streak: 2,
         referral_code: responseData.user.referral_code || 'N/A',
         p2p_success_rate: responseData.user.p2p_success_rate || 100,
+        avatar_url: responseData.user.avatar_url || '',
       };
 
       setUserData(normalizedUser);
+      setSelectedAvatar(normalizedUser.avatar_url || generateAvatarUrl(normalizedUser.username, selectedStyle));
     } catch (error) {
       console.error('Error fetching user data:', error);
       if (error.response?.status === 401) {
@@ -122,6 +175,7 @@ const DashboardLayout = () => {
           is_verified: false,
           referral_code: "cmemeAB",
           p2p_success_rate: 100,
+          avatar_url: "",
         });
       }
     } finally {
@@ -133,6 +187,7 @@ const DashboardLayout = () => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     setCopied(true);
+    showToast('Copied to clipboard!', 'success');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -144,6 +199,93 @@ const DashboardLayout = () => {
     } finally {
       removeUserFromLocalStorage();
       navigate('/auth');
+    }
+  };
+
+  // Avatar Modal Functions
+  const handleStyleChange = (e) => {
+    const newStyle = e.target.value;
+    setSelectedStyle(newStyle);
+    const newUrl = generateAvatarUrl(userData?.username, newStyle);
+    setSelectedAvatar(newUrl);
+  };
+
+  const handleRandomize = () => {
+    const randomSeed = Math.random().toString(36).substring(2, 10);
+    const newUrl = generateAvatarUrl(randomSeed, selectedStyle);
+    setSelectedAvatar(newUrl);
+  };
+
+  const handleSaveAvatar = async () => {
+    try {
+      await api.post("/user/update-avatar", { avatar_url: selectedAvatar });
+      // Update local user data
+      setUserData((prev) => ({ ...prev, avatar_url: selectedAvatar }));
+      setAvatarModalOpen(false);
+      showToast('Avatar updated successfully!', 'success');
+    } catch (err) {
+      console.error("Error saving avatar:", err);
+      showToast('Failed to save avatar. Try again.', 'error');
+    }
+  };
+
+  const openAvatarModal = () => {
+    const initialUrl = userData?.avatar_url || generateAvatarUrl(userData?.username, selectedStyle);
+    setSelectedAvatar(initialUrl);
+    setAvatarModalOpen(true);
+  };
+
+  // Deposit Confirmation Handler
+  const handleConfirmDeposit = async () => {
+    try {
+      const response = await api.post('/deposits/confirm', {
+        amount: parseFloat(depositAmount),
+        transaction_hash: transactionHash,
+        from_wallet: fromWallet,
+        currency: 'USDC',
+        network: 'base'
+      });
+
+      if (response.data.status === 'success') {
+        showToast('Deposit confirmed! Waiting for approval.', 'success');
+        setDepositConfirmModalOpen(false);
+        setDepositAmount("");
+        setTransactionHash("");
+        setFromWallet("");
+        setFundType(null);
+        
+        // Refresh user data
+        await fetchUserData();
+      }
+    } catch (error) {
+      console.error('Error confirming deposit:', error);
+      showToast(error.response?.data?.message || 'Failed to confirm deposit', 'error');
+    }
+  };
+
+  // Send Token Handler
+  const handleSendToken = async () => {
+    try {
+      const response = await api.post('/transactions/send', {
+        amount: parseFloat(sendAmount),
+        recipient_address: recipientAddress,
+        description: sendDescription || `Transfer to ${recipientAddress}`,
+        currency: 'CMEME'
+      });
+
+      if (response.data.status === 'success') {
+        showToast(`Successfully sent ${sendAmount} CMEME tokens!`, 'success');
+        setSendModalOpen(false);
+        setSendAmount("");
+        setRecipientAddress("");
+        setSendDescription("");
+        
+        // Refresh user data to update balances
+        await fetchUserData();
+      }
+    } catch (error) {
+      console.error('Error sending token:', error);
+      showToast(error.response?.data?.message || 'Failed to send tokens', 'error');
     }
   };
 
@@ -189,6 +331,100 @@ const DashboardLayout = () => {
         <Icon size={20} />
         <span>{item.label}</span>
       </button>
+    );
+  };
+
+  // Toast Component
+  const Toast = () => {
+    if (!toast.show) return null;
+
+    const bgColor = {
+      success: 'bg-green-500',
+      error: 'bg-red-500',
+      info: 'bg-blue-500'
+    }[toast.type];
+
+    return (
+      <div className={`fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-xl shadow-lg z-50 transform transition-transform duration-300 animate-in slide-in-from-right`}>
+        <div className="flex items-center space-x-2">
+          <Check size={20} />
+          <span>{toast.message}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Avatar Modal
+  const renderAvatarModal = () => {
+    if (!avatarModalOpen) return null;
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={() => setAvatarModalOpen(false)}
+      >
+        <div
+          className="bg-gray-900 rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <h2 className="text-xl font-bold text-gray-100">Choose Your Avatar</h2>
+            <button
+              onClick={() => setAvatarModalOpen(false)}
+              className="p-2 hover:bg-gray-800 rounded-lg"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-4 flex flex-col gap-5">
+            {/* Avatar Style Dropdown */}
+            <div className="flex flex-col">
+              <label className="text-gray-300 text-sm mb-1">Avatar Style</label>
+              <select
+                value={selectedStyle}
+                onChange={handleStyleChange}
+                className="bg-gray-800 text-gray-100 rounded-lg px-3 py-2 border border-gray-700 focus:ring-2 focus:ring-yellow-400"
+              >
+                {avatarStyles.map((style) => (
+                  <option key={style} value={style}>
+                    {style.charAt(0).toUpperCase() + style.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Avatar Preview */}
+            <div className="flex justify-center">
+              <img
+                src={selectedAvatar}
+                alt="Avatar Preview"
+                className="w-32 h-32 rounded-full border-4 border-yellow-400 shadow-lg object-cover"
+              />
+            </div>
+
+            {/* Randomize Button */}
+            <button
+              onClick={handleRandomize}
+              className="py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition-all"
+            >
+              🎲 Randomize Avatar
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-700">
+            <button
+              onClick={handleSaveAvatar}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all shadow-lg"
+            >
+              Save Avatar
+            </button>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -270,10 +506,10 @@ const DashboardLayout = () => {
           ) : (
             <div className="p-6 space-y-4">
               <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-3">
-                <p className="text-gray-400 text-sm">Wallet Address</p>
+                <p className="text-gray-400 text-sm">Deposit Wallet Address</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-gray-950 px-3 py-2 rounded-lg text-blue-400 font-mono text-xs break-all">
-                    {userData?.walletAddress}
+                    {userData?.walletAddress || '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'}
                   </code>
                   <button
                     onClick={() => handleCopy(userData?.walletAddress)}
@@ -289,7 +525,11 @@ const DashboardLayout = () => {
                 <div className="space-y-2 pt-2 border-t border-gray-700">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Network:</span>
-                    <span className="text-gray-200">Ethereum (ERC-20)</span>
+                    <span className="text-gray-200">Base Network</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Token:</span>
+                    <span className="text-gray-200">USDC</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Min. Deposit:</span>
@@ -297,12 +537,30 @@ const DashboardLayout = () => {
                   </div>
                 </div>
               </div>
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                <p className="text-red-400 text-sm">
-                  ⚠️ USDC deposits cannot be withdrawn. Only CMEME withdrawals allowed.
+
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                <p className="text-green-400 text-sm">
+                  ✓ USDC deposits can be withdrawn after approval
                 </p>
               </div>
-              <p className="text-gray-400 text-sm">Transaction will be auto-verified within 10 minutes.</p>
+
+              <p className="text-gray-400 text-sm">
+                Send USDC to the address above on Base Network, then confirm your deposit below.
+              </p>
+
+              <button
+                onClick={() => {
+                  // Open deposit confirmation modal
+                  setFundModalOpen(false);
+                  setTimeout(() => {
+                    setDepositConfirmModalOpen(true);
+                  }, 300);
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold transition-all shadow-lg"
+              >
+                I've Sent USDC - Confirm Deposit
+              </button>
+
               <button
                 onClick={() => {
                   setFundType(null)
@@ -319,9 +577,14 @@ const DashboardLayout = () => {
     );
   };
 
-  // Send Modal content
+  // Send Token Modal
   const renderSendModal = () => {
     if (!sendModalOpen) return null;
+
+    const isValid = sendAmount && parseFloat(sendAmount) > 0 && recipientAddress;
+    const availableBalance = userData?.token_balance || 0;
+    const transferFee = 0.5;
+    const totalAmount = (parseFloat(sendAmount) || 0) + transferFee;
 
     return (
       <div
@@ -333,7 +596,7 @@ const DashboardLayout = () => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
-            <h2 className="text-xl font-bold text-gray-100">Send Tokens</h2>
+            <h2 className="text-xl font-bold text-gray-100">Send CMEME Tokens</h2>
             <button
               onClick={() => setSendModalOpen(false)}
               className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
@@ -344,10 +607,12 @@ const DashboardLayout = () => {
 
           <div className="p-6 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Recipient Address</label>
+              <label className="text-sm font-medium text-gray-300">Recipient UID or Wallet Address</label>
               <input
                 type="text"
-                placeholder="Enter wallet address or UID"
+                placeholder="Enter recipient UID or wallet address"
+                value={recipientAddress}
+                onChange={(e) => setRecipientAddress(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
               />
             </div>
@@ -357,19 +622,145 @@ const DashboardLayout = () => {
               <input
                 type="number"
                 placeholder="0.00"
+                value={sendAmount}
+                onChange={(e) => setSendAmount(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
               />
-              <p className="text-xs text-gray-400">Available: {userData?.totalBalance || 0} CMEME</p>
+              <p className="text-xs text-gray-400">
+                Available: {availableBalance} CMEME
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Description (Optional)</label>
+              <input
+                type="text"
+                placeholder="Add a note for this transaction"
+                value={sendDescription}
+                onChange={(e) => setSendDescription(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+              />
+            </div>
+
+            {/* Fee Breakdown */}
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Transfer Amount:</span>
+                <span className="text-gray-200">{sendAmount || '0'} CMEME</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Network Fee:</span>
+                <span className="text-red-400">{transferFee} CMEME</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-gray-700 pt-2">
+                <span className="text-gray-300 font-medium">Total Deducted:</span>
+                <span className="text-yellow-400 font-bold">{totalAmount.toFixed(2)} CMEME</span>
+              </div>
+            </div>
+
+            {totalAmount > availableBalance && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <p className="text-red-400 text-sm">
+                  ⚠️ Insufficient balance. You need {totalAmount.toFixed(2)} CMEME but only have {availableBalance} CMEME available.
+                </p>
+              </div>
+            )}
+
+            <button 
+              onClick={handleSendToken}
+              disabled={!isValid || totalAmount > availableBalance}
+              className={`w-full py-3 rounded-xl font-semibold transition-all shadow-lg ${
+                isValid && totalAmount <= availableBalance
+                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 cursor-pointer'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isValid && totalAmount <= availableBalance ? 'Send Tokens' : 'Fill All Fields'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Deposit Confirmation Modal
+  const renderDepositConfirmModal = () => {
+    if (!depositConfirmModalOpen) return null;
+
+    const isValid = depositAmount && parseFloat(depositAmount) >= 10 && transactionHash && fromWallet;
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={() => setDepositConfirmModalOpen(false)}
+      >
+        <div
+          className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-700">
+            <h2 className="text-xl font-bold text-gray-100">Confirm USDC Deposit</h2>
+            <button
+              onClick={() => setDepositConfirmModalOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Amount Sent (USDC)</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+              />
+              <p className="text-xs text-gray-400">
+                Minimum deposit: 10 USDC
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Transaction Hash</label>
+              <input
+                type="text"
+                placeholder="Enter transaction hash"
+                value={transactionHash}
+                onChange={(e) => setTransactionHash(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">From Wallet Address</label>
+              <input
+                type="text"
+                placeholder="Enter your wallet address"
+                value={fromWallet}
+                onChange={(e) => setFromWallet(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+              />
             </div>
 
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
-                ℹ️ Only CMEME tokens can be sent. USDC transfers are not available.
+                ℹ️ Your deposit will be reviewed and approved within 24 hours. You'll be notified once approved.
               </p>
             </div>
 
-            <button className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all shadow-lg">
-              Send Tokens
+            <button 
+              onClick={handleConfirmDeposit}
+              disabled={!isValid}
+              className={`w-full py-3 rounded-xl font-semibold transition-all shadow-lg ${
+                isValid 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white cursor-pointer'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isValid ? 'Confirm Deposit' : 'Fill All Fields'}
             </button>
           </div>
         </div>
@@ -458,7 +849,7 @@ const DashboardLayout = () => {
               onClick={() => {
                 if (isValid) {
                   // Handle withdrawal logic here
-                  alert(`Withdrawal initiated: $${withdrawAmount} USDC`);
+                  showToast(`Withdrawal initiated: $${withdrawAmount} USDC`, 'success');
                   setWithdrawModalOpen(false);
                   setWithdrawAmount("");
                 }
@@ -491,6 +882,9 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 overflow-hidden">
+      {/* Toast Notifications */}
+      <Toast />
+
       {/* Desktop Sidebar */}
       <aside className="hidden lg:block w-80 border-r border-gray-700/50">
         <div className="flex flex-col h-full bg-[#0f1419] text-gray-200 overflow-y-auto">
@@ -498,8 +892,22 @@ const DashboardLayout = () => {
           {/* Profile Section */}
           <div className="px-6 py-4 space-y-4 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-gray-900">
-                {userData?.username?.charAt(0).toUpperCase() || 'U'}
+              <div 
+                onClick={openAvatarModal}
+                className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-gray-900 cursor-pointer hover:scale-105 transition-transform relative"
+              >
+                {userData?.avatar_url ? (
+                  <img
+                    src={userData.avatar_url}
+                    alt="User Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  userData?.username?.charAt(0).toUpperCase() || 'U'
+                )}
+                <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-gray-900 text-xs font-bold px-1 py-0.5 rounded shadow text-[10px]">
+                  Edit
+                </div>
               </div>
               <div>
                 <h3 className="font-semibold text-lg">{userData?.username || 'User'}</h3>
@@ -512,7 +920,7 @@ const DashboardLayout = () => {
                     {copied ? (
                       <Check size={12} className="text-green-400" />
                     ) : (
-                      <Copy size={12} className="text-gray-400" />
+                      <Copy size={12} className="text-gray-300" />
                     )}
                   </button> 
                 </div>
@@ -590,15 +998,21 @@ const DashboardLayout = () => {
                 <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
               </button>
 
-              {/* Staking Options */}
+              {/* Staking Options - Both Locked */}
               <div className="space-y-2">
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-all font-medium">
-                  <Download size={20} />
-                  <span>Stake CMEME</span>
+                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <Lock size={20} />
+                    <span>Stake CMEME</span>
+                  </div>
+                  <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all font-medium">
-                  <Download size={20} />
-                  <span>Stake USDC</span>
+                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <Lock size={20} />
+                    <span>Stake USDC</span>
+                  </div>
+                  <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                 </button>
               </div>
             </div>
@@ -640,8 +1054,25 @@ const DashboardLayout = () => {
               {/* Profile Section */}
               <div className="px-6 py-4 space-y-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-gray-900">
-                    {userData?.username?.charAt(0).toUpperCase() || 'U'}
+                  <div 
+                    onClick={() => {
+                      openAvatarModal();
+                      setSidebarOpen(false);
+                    }}
+                    className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl font-bold text-gray-900 cursor-pointer hover:scale-105 transition-transform relative"
+                  >
+                    {userData?.avatar_url ? (
+                      <img
+                        src={userData.avatar_url}
+                        alt="User Avatar"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      userData?.username?.charAt(0).toUpperCase() || 'U'
+                    )}
+                    <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-gray-900 text-xs font-bold px-1 py-0.5 rounded shadow text-[10px]">
+                      Edit
+                    </div>
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{userData?.username || 'User'}</h3>
@@ -654,7 +1085,7 @@ const DashboardLayout = () => {
                         {copied ? (
                           <Check size={12} className="text-green-400" />
                         ) : (
-                          <Copy size={12} className="text-gray-400" />
+                          <Copy size={12} className="text-gray-300" />
                         )}
                       </button>
                     </div>
@@ -735,15 +1166,21 @@ const DashboardLayout = () => {
                     <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                   </button>
 
-                  {/* Staking Options */}
+                  {/* Staking Options - Both Locked */}
                   <div className="space-y-2">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 transition-all font-medium">
-                      <Download size={20} />
-                      <span>Stake CMEME</span>
+                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                      <div className="flex items-center gap-3">
+                        <Lock size={20} />
+                        <span>Stake CMEME</span>
+                      </div>
+                      <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                     </button>
-                    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-all font-medium">
-                      <Download size={20} />
-                      <span>Stake USDC</span>
+                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-400 cursor-not-allowed transition-all font-medium bg-gray-800/30 border border-gray-600/30">
+                      <div className="flex items-center gap-3">
+                        <Lock size={20} />
+                        <span>Stake USDC</span>
+                      </div>
+                      <span className="text-xs bg-gray-600/50 px-2 py-1 rounded">Locked</span>
                     </button>
                   </div>
                 </div>
@@ -817,9 +1254,11 @@ const DashboardLayout = () => {
       </div>
 
       {/* Modals */}
+      {renderAvatarModal()}
       {renderFundModal()}
       {renderSendModal()}
       {renderWithdrawModal()}
+      {renderDepositConfirmModal()}
     </div>
   );
 };

@@ -1,4 +1,3 @@
-// utils/api.js
 import axios from 'axios';
 
 const api = axios.create({
@@ -11,7 +10,9 @@ const api = axios.create({
 
 // Request interceptor
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('authToken');
+  // Check if this is an admin route
+  const isAdminRoute = config.url.includes('/admin/');
+  const token = localStorage.getItem(isAdminRoute ? 'adminToken' : 'authToken');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -27,9 +28,17 @@ api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-      window.location.href = '/auth';
+      const isAdminRoute = error.config.url.includes('/admin/');
+      
+      if (isAdminRoute) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminData');
+        window.location.href = '/admin/login';
+      } else {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        window.location.href = '/auth';
+      }
     }
     return Promise.reject(error);
   }

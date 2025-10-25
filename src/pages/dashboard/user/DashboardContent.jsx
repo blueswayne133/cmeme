@@ -5,43 +5,55 @@ import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
 
 const DashboardContent = () => {
   const [miningStatus, setMiningStatus] = useState({
-    has_active_session: false,
-    progress: 0,
-    time_remaining: 86400,
-    daily_reward: 1,
-    streak: 2
+    can_claim: true,
+    last_claimed_at: null,
+    next_claim_at: null,
+    time_remaining: 0,
+    progress: 0
   });
   const [loading, setLoading] = useState(false);
   const { userData, refetchUserData, setSendModalOpen, setFundModalOpen, setWithdrawModalOpen, timeRemaining } = useOutletContext();
 
-  // Initialize countdown from localStorage
-  const [countdown, setCountdown] = useState(() => {
-    const savedEndTime = localStorage.getItem('mining_end_time');
-    if (savedEndTime) {
-      const now = Math.floor(Date.now() / 1000);
-      const endTime = parseInt(savedEndTime);
-      const remaining = Math.max(0, endTime - now);
-      
-      // If there's remaining time, set active session
-      if (remaining > 0) {
-        setMiningStatus(prev => ({
-          ...prev,
-          has_active_session: true,
-          progress: calculateProgress(remaining)
-        }));
-      }
-      
-      return remaining;
-    }
-    return 86400; // Default 24 hours
-  });
+  // Initialize mining status
+  useEffect(() => {
+    fetchMiningStatus();
+  }, []);
 
-  // Calculate progress based on remaining time
-  const calculateProgress = (remainingTime) => {
-    const totalTime = 86400; // 24 hours in seconds
-    const elapsed = totalTime - remainingTime;
-    return Math.min(100, Math.max(0, (elapsed / totalTime) * 100));
+  const fetchMiningStatus = async () => {
+    try {
+      const response = await api.get('/mining/status');
+      setMiningStatus(response.data.data);
+    } catch (error) {
+      console.error('Error fetching mining status:', error);
+    }
   };
+
+  // Countdown effect for next claim and progress calculation
+  useEffect(() => {
+    if (!miningStatus.can_claim && miningStatus.time_remaining > 0) {
+      const timer = setInterval(() => {
+        setMiningStatus(prev => {
+          const newTimeRemaining = Math.max(0, prev.time_remaining - 1);
+          const totalTime = 86400; // 24 hours in seconds
+          const progress = Math.min(100, ((totalTime - newTimeRemaining) / totalTime) * 100);
+          
+          return {
+            ...prev,
+            time_remaining: newTimeRemaining,
+            progress: progress
+          };
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    } else if (miningStatus.can_claim && miningStatus.time_remaining === 0) {
+      // When claim is available, set progress to 100%
+      setMiningStatus(prev => ({
+        ...prev,
+        progress: 100
+      }));
+    }
+  }, [miningStatus.can_claim, miningStatus.time_remaining]);
 
   // Format time for display
   const formatTime = (seconds) => {
@@ -51,116 +63,57 @@ const DashboardContent = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Countdown effect
-  useEffect(() => {
-    // Only start countdown if there's active time remaining
-    if (countdown <= 0) return;
-
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        const newCountdown = prev - 1;
-        
-        // Update progress based on new countdown
-        setMiningStatus(prevStatus => ({
-          ...prevStatus,
-          progress: calculateProgress(newCountdown)
-        }));
-
-        if (newCountdown <= 0) {
-          clearInterval(timer);
-          // Mining session completed
-          setMiningStatus(prevStatus => ({
-            ...prevStatus,
-            has_active_session: false,
-            progress: 100
-          }));
-          localStorage.removeItem('mining_end_time');
-          return 0;
-        }
-        
-        return newCountdown;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [countdown]);
-
-  const handleStartMining = async () => {
+  const handleClaimMining = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      setTimeout(() => {
-        const endTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
-        localStorage.setItem('mining_end_time', endTime.toString());
-        
+      const response = await api.post('/mining/claim');
+      
+      if (response.data.status === 'success') {
+        // Reset progress to 0 immediately
         setMiningStatus(prev => ({
           ...prev,
-          has_active_session: true,
-          progress: 0
+          can_claim: false,
+          progress: 0,
+          time_remaining: 86400 // Reset to 24 hours
         }));
-        setCountdown(86400);
-        setLoading(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error starting mining:', error);
-      alert(error.response?.data?.message || 'Failed to start mining');
-      setLoading(false);
-    }
-  };
 
-  const handleClaimReward = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      setTimeout(() => {
-        setMiningStatus(prev => ({
-          ...prev,
-          has_active_session: false,
-          progress: 0
-        }));
-        localStorage.removeItem('mining_end_time');
-        setCountdown(86400);
+        // Refresh mining status from server
+        await fetchMiningStatus();
         
+        // Refresh user data to update balances
         if (refetchUserData) {
-          refetchUserData();
+          await refetchUserData();
         }
-        setLoading(false);
-      }, 1000);
+        
+        alert('1 CMEME token claimed successfully!');
+      }
     } catch (error) {
-      console.error('Error claiming reward:', error);
-      alert(error.response?.data?.message || 'Failed to claim reward');
+      console.error('Error claiming mining reward:', error);
+      alert(error.response?.data?.message || 'Failed to claim mining reward');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Start mining button with proper logic
+  // Render mining button
   const renderMiningButton = () => {
-    if (miningStatus.has_active_session) {
-      if (countdown > 0) {
-        return (
-          <button disabled className="w-full py-4 rounded-xl bg-gray-700/30 text-gray-500 font-semibold cursor-not-allowed">
-            Mining in progress... {formatTime(countdown)}
-          </button>
-        );
-      } else {
-        return (
-          <button
-            onClick={handleClaimReward}
-            disabled={loading}
-            className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Claiming..." : "Claim Reward"}
-          </button>
-        );
-      }
-    } else {
+    if (miningStatus.can_claim) {
       return (
         <button
-          onClick={handleStartMining}
+          onClick={handleClaimMining}
           disabled={loading}
-          className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Starting..." : "Start Mining"}
+          {loading ? "Claiming..." : "Claim 1 CMEME"}
+        </button>
+      );
+    } else {
+      return (
+        <button 
+          disabled 
+          className="w-full py-4 rounded-xl bg-gray-700/30 text-gray-500 font-semibold cursor-not-allowed"
+        >
+          Next claim in: {formatTime(miningStatus.time_remaining)}
         </button>
       );
     }
@@ -168,7 +121,6 @@ const DashboardContent = () => {
 
   return (
     <div className="space-y-6">
-     
       {/* Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Token Balance */}
@@ -220,42 +172,71 @@ const DashboardContent = () => {
         </button>
       </div>
 
-      {/* Mining Progress */}
+      {/* Mining Section */}
       <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-xl font-bold text-gray-100">Mining Progress</h3>
-          <span className="text-gray-400 font-semibold">{Math.round(miningStatus.progress)}%</span>
+          <h3 className="text-xl font-bold text-gray-100">Daily Mining</h3>
+          <span className="text-gray-400 font-semibold">
+            {miningStatus.can_claim ? 'Ready to Claim' : 'On Cooldown'}
+          </span>
         </div>
-        <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-500"
-            style={{ width: `${miningStatus.progress}%` }}
-          ></div>
-        </div>
-        <p className="text-gray-400 text-sm">
-          Next reward in: <span className="text-gray-200 font-mono font-semibold">{formatTime(countdown)}</span>
-        </p>
-      </div>
 
-      {/* Dynamic Mining Button */}
-      {renderMiningButton()}
+        {/* Mining Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-400">Mining Progress</span>
+            <span className="text-sm font-semibold text-gray-300">{Math.round(miningStatus.progress)}%</span>
+          </div>
+          <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 transition-all duration-500 ease-out"
+              style={{ width: `${miningStatus.progress}%` }}
+            ></div>
+          </div>
+          <p className="text-gray-400 text-sm">
+            {miningStatus.can_claim ? (
+              <span className="text-green-400">✅ Mining complete! Ready to claim</span>
+            ) : (
+              <>Next claim in: <span className="text-gray-200 font-mono font-semibold">{formatTime(miningStatus.time_remaining)}</span></>
+            )}
+          </p>
+        </div>
+        
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+          <p className="text-yellow-400 text-sm text-center">
+            💎 Claim 1 CMEME token every 24 hours
+          </p>
+        </div>
+
+        {/* Mining Button */}
+        {renderMiningButton()}
+
+        {/* Info */}
+        <div className="text-center text-gray-400 text-sm">
+          {miningStatus.last_claimed_at && (
+            <p>Last claimed: {new Date(miningStatus.last_claimed_at).toLocaleDateString()}</p>
+          )}
+          <p>Resets every 24 hours</p>
+        </div>
+      </div>
 
       {/* Reward Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-          <p className="text-gray-400 text-sm mb-2">Daily Reward</p>
+          <p className="text-gray-400 text-sm mb-2">Daily Mining Reward</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-gray-100">{miningStatus.daily_reward}</span>
+            <span className="text-3xl font-bold text-gray-100">1</span>
             <span className="text-lg font-semibold text-yellow-400">CMEME</span>
           </div>
         </div>
 
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-          <p className="text-gray-400 text-sm mb-2">Streak</p>
+          <p className="text-gray-400 text-sm mb-2">Task Streak</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-gray-100">{miningStatus.streak}</span>
+            <span className="text-3xl font-bold text-gray-100">{userData?.mining_streak || 0}</span>
             <span className="text-lg font-semibold text-yellow-400">days</span>
           </div>
+          <p className="text-gray-400 text-xs mt-2">From daily tasks</p>
         </div>
       </div>
     </div>

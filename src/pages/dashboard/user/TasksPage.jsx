@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { CheckSquare, Play, TrendingUp, Twitter, Send, Clock, CheckCircle, Wallet, AlertCircle } from "lucide-react";
 import api from "../../../utils/api";
+import toast from 'react-hot-toast';
 
 const TasksPage = () => {
   const [tasks, setTasks] = useState([]);
@@ -23,6 +24,7 @@ const TasksPage = () => {
       setTasks(response.data.data.tasks || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -34,6 +36,7 @@ const TasksPage = () => {
       setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching task stats:', error);
+      toast.error('Failed to load task statistics');
     }
   };
 
@@ -51,7 +54,7 @@ const TasksPage = () => {
           await refetchUserData();
         }
         
-        alert(response.data.message || 'Task completed successfully!');
+        toast.success(response.data.message || 'Task completed successfully!');
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -59,18 +62,37 @@ const TasksPage = () => {
       // Special handling for wallet connection task
       if (error.response?.data?.message?.includes('wallet') || 
           error.response?.data?.message?.includes('connect')) {
-        alert('Please connect your wallet first to complete this task.');
+        toast.error('Please connect your wallet first to complete this task.');
         navigate('/dashboard/wallet');
       } else {
-        alert(error.response?.data?.message || 'Failed to complete task');
+        toast.error(error.response?.data?.message || 'Failed to complete task');
       }
     } finally {
       setCompletingTask(null);
     }
   };
 
+  const handleClaimWalletBonus = async () => {
+    try {
+      setCompletingTask('wallet_bonus');
+      const response = await api.post('/wallet/claim-bonus');
+      
+      if (response.data.status === 'success') {
+        await Promise.all([fetchTasks(), fetchTaskStats()]);
+        if (refetchUserData) {
+          await refetchUserData();
+        }
+        toast.success(response.data.message || 'Wallet bonus claimed successfully!');
+      }
+    } catch (error) {
+      console.error('Error claiming wallet bonus:', error);
+      toast.error(error.response?.data?.message || 'Failed to claim wallet bonus');
+    } finally {
+      setCompletingTask(null);
+    }
+  };
+
   const handleWalletTaskClick = () => {
-    // Navigate to wallet page for connection
     navigate('/dashboard/wallet');
   };
 
@@ -99,20 +121,23 @@ const TasksPage = () => {
     if (completingTask === task.id) {
       return 'Processing...';
     }
-    
-    if (!task.can_complete) {
-      if (task.type === 'watch_ads' && task.current_attempts >= task.max_attempts) {
-        return 'Daily Limit Reached';
+
+    // Special handling for wallet task
+    if (task.type === 'connect_wallet') {
+      const isWalletConnected = userData?.hasConnectedWallet?.();
+      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      
+      if (!isWalletConnected) {
+        return 'Connect Wallet';
+      } else if (isWalletConnected && !hasClaimedBonus) {
+        return 'Claim 0.5 CMEME';
+      } else if (hasClaimedBonus) {
+        return 'Bonus Claimed';
       }
-      return 'Cannot Complete';
     }
     
     if (task.type === 'watch_ads') {
       return `Watch Ad (${task.current_attempts || 0}/${task.max_attempts})`;
-    }
-
-    if (task.type === 'connect_wallet') {
-      return 'Connect Wallet';
     }
     
     return 'Complete Task';
@@ -121,7 +146,18 @@ const TasksPage = () => {
   const isTaskDisabled = (task) => {
     if (completingTask === task.id) return true;
     if (task.is_completed) return true;
-    if (!task.can_complete && task.type !== 'connect_wallet') return true;
+    
+    // Special logic for wallet task
+    if (task.type === 'connect_wallet') {
+      const isWalletConnected = userData?.hasConnectedWallet?.();
+      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      
+      if (!isWalletConnected) return false; // Allow navigation to wallet page
+      if (isWalletConnected && hasClaimedBonus) return true; // Disable if bonus claimed
+      return false; // Allow claiming bonus
+    }
+    
+    if (!task.can_complete) return true;
     return false;
   };
 
@@ -130,25 +166,37 @@ const TasksPage = () => {
       return { text: 'Completed', color: 'text-green-400', bg: 'bg-green-500/20' };
     }
     
-    if (!task.can_complete && task.type !== 'connect_wallet') {
-      return { text: 'Unavailable', color: 'text-red-400', bg: 'bg-red-500/20' };
-    }
-
     if (task.type === 'connect_wallet') {
       const isWalletConnected = userData?.hasConnectedWallet?.();
-      return { 
-        text: isWalletConnected ? 'Wallet Connected' : 'Connect Wallet', 
-        color: isWalletConnected ? 'text-green-400' : 'text-yellow-400', 
-        bg: isWalletConnected ? 'bg-green-500/20' : 'bg-yellow-500/20' 
-      };
+      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      
+      if (!isWalletConnected) {
+        return { text: 'Connect Wallet', color: 'text-yellow-400', bg: 'bg-yellow-500/20' };
+      } else if (isWalletConnected && !hasClaimedBonus) {
+        return { text: 'Claim Bonus', color: 'text-blue-400', bg: 'bg-blue-500/20' };
+      } else if (hasClaimedBonus) {
+        return { text: 'Bonus Claimed', color: 'text-green-400', bg: 'bg-green-500/20' };
+      }
+    }
+    
+    if (!task.can_complete) {
+      return { text: 'Unavailable', color: 'text-red-400', bg: 'bg-red-500/20' };
     }
     
     return { text: 'Available', color: 'text-blue-400', bg: 'bg-blue-500/20' };
   };
 
   const handleTaskAction = (task) => {
-    if (task.type === 'connect_wallet' && !userData?.hasConnectedWallet?.()) {
-      handleWalletTaskClick();
+    if (task.type === 'connect_wallet') {
+      const isWalletConnected = userData?.hasConnectedWallet?.();
+      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      
+      if (!isWalletConnected) {
+        handleWalletTaskClick();
+      } else if (isWalletConnected && !hasClaimedBonus) {
+        handleClaimWalletBonus();
+      }
+      // If bonus already claimed, do nothing (button disabled)
     } else {
       handleCompleteTask(task.id);
     }
@@ -212,6 +260,7 @@ const TasksPage = () => {
           const status = getTaskStatus(task);
           const isWalletTask = task.type === 'connect_wallet';
           const isWalletConnected = userData?.hasConnectedWallet?.();
+          const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
           
           return (
             <div
@@ -267,12 +316,14 @@ const TasksPage = () => {
               {/* Action Button */}
               <button
                 onClick={() => handleTaskAction(task)}
-                disabled={isTaskDisabled(task) && !isWalletTask}
+                disabled={isTaskDisabled(task)}
                 className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                  isTaskDisabled(task) && !isWalletTask
+                  isTaskDisabled(task)
                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                     : isWalletTask && !isWalletConnected
                     ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-lg hover:shadow-xl'
+                    : isWalletTask && isWalletConnected && !hasClaimedBonus
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl'
                     : 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 shadow-lg hover:shadow-xl'
                 }`}
               >
@@ -285,6 +336,7 @@ const TasksPage = () => {
                   <div className="flex items-center justify-center gap-2">
                     {task.is_completed && <CheckCircle size={16} />}
                     {isWalletTask && !isWalletConnected && <Wallet size={16} />}
+                    {isWalletTask && isWalletConnected && !hasClaimedBonus && <CheckCircle size={16} />}
                     {getTaskButtonText(task)}
                   </div>
                 )}
@@ -309,7 +361,16 @@ const TasksPage = () => {
               {isWalletTask && !isWalletConnected && (
                 <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                   <p className="text-blue-400 text-xs">
-                    Click to connect your Base Network wallet and claim your 2500 CMEME bonus!
+                    Click to connect your Base Network wallet and claim your 0.5 CMEME bonus!
+                  </p>
+                </div>
+              )}
+
+              {/* Wallet Task Claim Instructions */}
+              {isWalletTask && isWalletConnected && !hasClaimedBonus && (
+                <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <p className="text-green-400 text-xs">
+                    Wallet connected! Click above to claim your 0.5 CMEME bonus.
                   </p>
                 </div>
               )}
