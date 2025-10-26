@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock, Trash2, X } from "lucide-react";
 import api from "../../../utils/api";
 import toast from "react-hot-toast";
-import { X } from "lucide-react";
 
 const P2PTradePage = () => {
   const [activeTab, setActiveTab] = useState('sell');
@@ -71,6 +70,19 @@ const P2PTradePage = () => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to initiate trade';
       toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteTrade = async (tradeId) => {
+    try {
+      await api.delete(`/p2p/trades/${tradeId}`);
+      setTradeDetailModal(null);
+      fetchTrades();
+      toast.success('Trade deleted successfully!');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete trade';
+      toast.error(errorMessage);
+      throw error;
     }
   };
 
@@ -143,7 +155,6 @@ const P2PTradePage = () => {
         </button>
       </div>
 
-      {/* Rest of the component remains the same */}
       {/* Filters */}
       <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -230,6 +241,7 @@ const P2PTradePage = () => {
           trade={tradeDetailModal}
           onClose={() => setTradeDetailModal(null)}
           onInitiate={handleInitiateTrade}
+          onDelete={handleDeleteTrade}
           userData={userData}
           isKycVerified={isKycVerified}
         />
@@ -382,12 +394,6 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       return;
     }
 
-    // if (formData.type === 'buy' && (parseFloat(formData.amount) * parseFloat(formData.price) > userData?.usdc_balance)) {
-    //   setErrors({ amount: 'Insufficient USDC balance' });
-    //   setLoading(false);
-    //   return;
-    // }
-
     try {
       const submitData = {
         ...formData,
@@ -405,7 +411,6 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
     }
   };
 
-  // Rest of the modal component remains the same...
   const updateFormData = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -450,7 +455,6 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
             </div>
           )}
 
-          {/* Rest of the form remains the same */}
           {/* Trade Type */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">Trade Type</label>
@@ -650,9 +654,25 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   );
 };
 
-// Updated TradeDetailModal Component
-const TradeDetailModal = ({ trade, onClose, onInitiate, userData, isKycVerified }) => {
+// Updated TradeDetailModal Component with Delete Functionality
+const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified }) => {
   const isOwnTrade = trade.seller_id === userData?.id;
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this trade? This action cannot be undone and your locked funds will be refunded.")) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await onDelete(trade.id);
+    } catch (error) {
+      // Error handled in parent
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -772,7 +792,28 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData, isKycVerified 
                 </button>
               )
             )}
-            {isOwnTrade && (
+            
+            {isOwnTrade && trade.status === 'active' && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Delete Trade
+                  </>
+                )}
+              </button>
+            )}
+            
+            {isOwnTrade && trade.status !== 'active' && (
               <button
                 disabled
                 className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed"
@@ -780,6 +821,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData, isKycVerified 
                 Your Trade
               </button>
             )}
+            
             <button
               onClick={onClose}
               className="flex-1 py-3 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-semibold rounded-xl transition-colors"
@@ -792,7 +834,5 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData, isKycVerified 
     </div>
   );
 };
-
-
 
 export default P2PTradePage;

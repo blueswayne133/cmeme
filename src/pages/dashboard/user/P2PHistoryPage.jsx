@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Check, X, Clock, AlertTriangle, Eye, Ban } from "lucide-react";
+import { Check, X, Clock, AlertTriangle, Ban, RefreshCw } from "lucide-react";
 import api from "../../../utils/api";
 import toast from "react-hot-toast";
 
@@ -18,10 +18,19 @@ const P2PHistoryPage = () => {
     try {
       setLoading(true);
       const response = await api.get('/p2p/trades/user', {
-        params: { status: filter === 'all' ? '' : filter }
+        params: filter === 'all' ? {} : { status: filter }
       });
+      
       console.log('Trade history response:', response.data);
-      setTrades(response.data.data.trades || []);
+      
+      // Filter to show only trades where user participated (as buyer or seller)
+      const allTrades = response.data.data?.trades || response.data.data || [];
+      const userTrades = allTrades.filter(trade => 
+        trade.buyer_id === userData?.id || // User participated as buyer
+        trade.seller_id === userData?.id   // User participated as seller
+      );
+      
+      setTrades(userTrades);
     } catch (error) {
       console.error('Error fetching trade history:', error);
       toast.error('Failed to fetch trade history');
@@ -69,7 +78,7 @@ const P2PHistoryPage = () => {
 
   const getRole = (trade) => {
     if (trade.seller_id === userData?.id) {
-      return trade.type === 'sell' ? 'Seller' : 'Buyer';
+      return trade.type === 'sell' ? 'Seller' : 'Buy Order Creator';
     } else {
       return trade.type === 'sell' ? 'Buyer' : 'Seller';
     }
@@ -84,20 +93,27 @@ const P2PHistoryPage = () => {
   };
 
   const canCancelTrade = (trade) => {
-    // User can cancel if they are the seller and trade is active
+    // User can cancel if they are the creator (seller) and trade is active
     // Or if they are involved in a processing trade
     const isSeller = trade.seller_id === userData?.id;
-    const isBuyer = trade.buyer_id === userData?.id;
     
     if (trade.status === 'active' && isSeller) {
       return true;
     }
     
-    if (trade.status === 'processing' && (isSeller || isBuyer)) {
+    if (trade.status === 'processing' && isSeller) {
       return true;
     }
     
     return false;
+  };
+
+  const getTradeAction = (trade) => {
+    if (trade.seller_id === userData?.id) {
+      return trade.type === 'sell' ? 'Selling' : 'Buying';
+    } else {
+      return trade.type === 'sell' ? 'Buying' : 'Selling';
+    }
   };
 
   if (loading) {
@@ -113,20 +129,29 @@ const P2PHistoryPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-100">P2P Trade History</h2>
         
-        <div className="flex flex-wrap gap-2">
-          {['all', 'active', 'processing', 'completed', 'cancelled', 'disputed'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                filter === status
-                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900'
-                  : 'bg-gray-800 text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            {['all', 'active', 'processing', 'completed', 'cancelled', 'disputed'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  filter === status
+                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900'
+                    : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={fetchTradeHistory}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-all"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -145,13 +170,13 @@ const P2PHistoryPage = () => {
                   {getStatusIcon(trade.status)}
                   <div>
                     <p className="text-gray-100 font-semibold">
-                      {getRole(trade)} - {trade.type === 'sell' ? 'Selling' : 'Buying'} {trade.amount} CMEME
+                      {getTradeAction(trade)} {trade.amount} CMEME
                     </p>
                     <p className="text-gray-400 text-sm">
                       {new Date(trade.created_at).toLocaleDateString()} at {new Date(trade.created_at).toLocaleTimeString()}
                     </p>
                     <p className="text-gray-400 text-sm">
-                      Trade ID: #{trade.id}
+                      Trade ID: #{trade.id} • Role: {getRole(trade)}
                     </p>
                   </div>
                 </div>
@@ -201,8 +226,8 @@ const P2PHistoryPage = () => {
                   <p className="text-gray-100">{trade.time_limit} minutes</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Role</p>
-                  <p className="text-gray-100">{getRole(trade)}</p>
+                  <p className="text-gray-400">Trade Type</p>
+                  <p className="text-gray-100 capitalize">{trade.type}</p>
                 </div>
               </div>
 

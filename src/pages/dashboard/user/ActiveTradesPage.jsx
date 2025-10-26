@@ -18,7 +18,8 @@ const ActiveTradesPage = () => {
       const response = await api.get('/p2p/trades/user', {
         params: { status: 'processing' }
       });
-      setTrades(response.data.data.trades.data || []);
+      // Fixed: Access the correct data path
+      setTrades(response.data.data.trades || []);
     } catch (error) {
       console.error('Error fetching user trades:', error);
     } finally {
@@ -54,6 +55,10 @@ const ActiveTradesPage = () => {
   };
 
   const handleCancelTrade = async (tradeId, reason) => {
+    if (!confirm("Are you sure you want to cancel this trade?")) {
+      return;
+    }
+
     try {
       await api.post(`/p2p/trades/${tradeId}/cancel`, { reason });
       fetchUserTrades();
@@ -130,7 +135,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onConfirmPayment, onC
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <User size={20} className="text-gray-400" />
-            <span className="text-gray-300 font-semibold">{counterparty?.username}</span>
+            <span className="text-gray-300 font-semibold">{counterparty?.username || 'Waiting for counterparty...'}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Clock size={16} className="text-blue-400" />
@@ -231,25 +236,27 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onConfirmPayment, onC
               <h3 className="text-lg font-bold text-gray-100">Cancel Trade</h3>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-gray-300">Please provide a reason for cancelling this trade:</p>
+              <p className="text-gray-300">Please provide a reason for cancellation:</p>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-400/50"
-                placeholder="Reason for cancellation..."
-                rows="3"
+                placeholder="Enter cancellation reason..."
+                className="w-full h-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400 resize-none"
               />
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowCancel(false)}
+                  onClick={() => {
+                    setShowCancel(false);
+                    setCancelReason('');
+                  }}
                   className="flex-1 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 rounded-xl transition-colors"
                 >
-                  Go Back
+                  Cancel
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={!cancelReason.trim()}
-                  className="flex-1 py-2 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50"
+                  className="flex-1 py-2 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-all"
                 >
                   Confirm Cancel
                 </button>
