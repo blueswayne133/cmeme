@@ -301,7 +301,7 @@ const DashboardLayout = () => {
   const walletNavItems = [
     { path: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { path: '/dashboard/history', label: 'History', icon: History },
-    { path: '/dashboard/wallet', label: 'Connect Wallet', icon: Link },
+    
   ];
 
   const p2pNavItems = [
