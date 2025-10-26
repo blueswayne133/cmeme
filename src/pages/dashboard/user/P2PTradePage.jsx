@@ -382,11 +382,11 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       return;
     }
 
-    if (formData.type === 'buy' && (parseFloat(formData.amount) * parseFloat(formData.price) > userData?.usdc_balance)) {
-      setErrors({ amount: 'Insufficient USDC balance' });
-      setLoading(false);
-      return;
-    }
+    // if (formData.type === 'buy' && (parseFloat(formData.amount) * parseFloat(formData.price) > userData?.usdc_balance)) {
+    //   setErrors({ amount: 'Insufficient USDC balance' });
+    //   setLoading(false);
+    //   return;
+    // }
 
     try {
       const submitData = {

@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Check, X, Clock, AlertTriangle } from "lucide-react";
+import { Check, X, Clock, AlertTriangle, Eye, Ban } from "lucide-react";
 import api from "../../../utils/api";
+import toast from "react-hot-toast";
 
 const P2PHistoryPage = () => {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const { userData } = useOutletContext();
 
   useEffect(() => {
     fetchTradeHistory();
@@ -18,11 +20,28 @@ const P2PHistoryPage = () => {
       const response = await api.get('/p2p/trades/user', {
         params: { status: filter === 'all' ? '' : filter }
       });
-      setTrades(response.data.data.trades.data || []);
+      console.log('Trade history response:', response.data);
+      setTrades(response.data.data.trades || []);
     } catch (error) {
       console.error('Error fetching trade history:', error);
+      toast.error('Failed to fetch trade history');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelTrade = async (tradeId, reason = "User cancelled") => {
+    if (!confirm("Are you sure you want to cancel this trade? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await api.post(`/p2p/trades/${tradeId}/cancel`, { reason });
+      toast.success('Trade cancelled successfully');
+      fetchTradeHistory(); // Refresh the list
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to cancel trade';
+      toast.error(errorMessage);
     }
   };
 
@@ -32,6 +51,7 @@ const P2PHistoryPage = () => {
       case 'cancelled': return <X className="text-red-400" size={16} />;
       case 'processing': return <Clock className="text-yellow-400" size={16} />;
       case 'disputed': return <AlertTriangle className="text-orange-400" size={16} />;
+      case 'active': return <Clock className="text-blue-400" size={16} />;
       default: return <Clock className="text-gray-400" size={16} />;
     }
   };
@@ -42,8 +62,42 @@ const P2PHistoryPage = () => {
       case 'cancelled': return 'text-red-400 bg-red-500/20';
       case 'processing': return 'text-yellow-400 bg-yellow-500/20';
       case 'disputed': return 'text-orange-400 bg-orange-500/20';
+      case 'active': return 'text-blue-400 bg-blue-500/20';
       default: return 'text-gray-400 bg-gray-500/20';
     }
+  };
+
+  const getRole = (trade) => {
+    if (trade.seller_id === userData?.id) {
+      return trade.type === 'sell' ? 'Seller' : 'Buyer';
+    } else {
+      return trade.type === 'sell' ? 'Buyer' : 'Seller';
+    }
+  };
+
+  const getCounterparty = (trade) => {
+    if (trade.seller_id === userData?.id) {
+      return trade.buyer?.username || 'Waiting for buyer...';
+    } else {
+      return trade.seller?.username || 'Unknown';
+    }
+  };
+
+  const canCancelTrade = (trade) => {
+    // User can cancel if they are the seller and trade is active
+    // Or if they are involved in a processing trade
+    const isSeller = trade.seller_id === userData?.id;
+    const isBuyer = trade.buyer_id === userData?.id;
+    
+    if (trade.status === 'active' && isSeller) {
+      return true;
+    }
+    
+    if (trade.status === 'processing' && (isSeller || isBuyer)) {
+      return true;
+    }
+    
+    return false;
   };
 
   if (loading) {
@@ -59,8 +113,8 @@ const P2PHistoryPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-100">P2P Trade History</h2>
         
-        <div className="flex gap-2">
-          {['all', 'completed', 'cancelled', 'processing', 'disputed'].map((status) => (
+        <div className="flex flex-wrap gap-2">
+          {['all', 'active', 'processing', 'completed', 'cancelled', 'disputed'].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -91,44 +145,106 @@ const P2PHistoryPage = () => {
                   {getStatusIcon(trade.status)}
                   <div>
                     <p className="text-gray-100 font-semibold">
-                      {trade.type === 'sell' ? 'Sold' : 'Bought'} {trade.amount} CMEME
+                      {getRole(trade)} - {trade.type === 'sell' ? 'Selling' : 'Buying'} {trade.amount} CMEME
                     </p>
                     <p className="text-gray-400 text-sm">
-                      {new Date(trade.created_at).toLocaleDateString()}
+                      {new Date(trade.created_at).toLocaleDateString()} at {new Date(trade.created_at).toLocaleTimeString()}
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Trade ID: #{trade.id}
                     </p>
                   </div>
                 </div>
                 
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(trade.status)}`}>
-                  {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+                <div className="flex items-center gap-3">
+                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(trade.status)}`}>
+                    {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+                  </div>
+                  
+                  {canCancelTrade(trade) && (
+                    <button
+                      onClick={() => handleCancelTrade(trade.id)}
+                      className="flex items-center gap-2 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all"
+                    >
+                      <Ban size={14} />
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
                 <div>
                   <p className="text-gray-400">Price</p>
                   <p className="text-gray-100 font-semibold">${trade.price}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Total</p>
+                  <p className="text-gray-400">Total Value</p>
                   <p className="text-gray-100 font-semibold">${trade.total} USD</p>
                 </div>
                 <div>
                   <p className="text-gray-400">Counterparty</p>
-                  <p className="text-gray-100 font-semibold">
-                    {trade.seller_id === trade.current_user_id ? trade.buyer?.username : trade.seller?.username}
-                  </p>
+                  <p className="text-gray-100 font-semibold">{getCounterparty(trade)}</p>
                 </div>
                 <div>
                   <p className="text-gray-400">Payment Method</p>
-                  <p className="text-gray-100 font-semibold">{trade.payment_method_label}</p>
+                  <p className="text-gray-100 font-semibold">
+                    {trade.payment_method_label || trade.payment_method}
+                  </p>
                 </div>
               </div>
 
+              {/* Additional Trade Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-400">Time Limit</p>
+                  <p className="text-gray-100">{trade.time_limit} minutes</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Role</p>
+                  <p className="text-gray-100">{getRole(trade)}</p>
+                </div>
+              </div>
+
+              {/* Trade Terms */}
+              {trade.terms && (
+                <div className="mt-4 p-3 bg-gray-900/50 rounded-xl border border-gray-700">
+                  <p className="text-gray-400 text-sm mb-1">Trade Terms</p>
+                  <p className="text-gray-200 text-sm">{trade.terms}</p>
+                </div>
+              )}
+
+              {/* Cancellation Reason */}
               {trade.cancellation_reason && (
                 <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
                   <p className="text-red-400 text-sm">
                     <strong>Cancellation Reason:</strong> {trade.cancellation_reason}
+                  </p>
+                </div>
+              )}
+
+              {/* Expiration Time for Processing Trades */}
+              {trade.status === 'processing' && trade.expires_at && (
+                <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                  <p className="text-yellow-400 text-sm">
+                    <strong>Expires:</strong> {new Date(trade.expires_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {/* Completed/Cancelled Time */}
+              {(trade.status === 'completed' && trade.completed_at) && (
+                <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                  <p className="text-green-400 text-sm">
+                    <strong>Completed:</strong> {new Date(trade.completed_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {(trade.status === 'cancelled' && trade.cancelled_at) && (
+                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                  <p className="text-red-400 text-sm">
+                    <strong>Cancelled:</strong> {new Date(trade.cancelled_at).toLocaleString()}
                   </p>
                 </div>
               )}
