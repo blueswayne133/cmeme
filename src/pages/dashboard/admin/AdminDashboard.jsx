@@ -1,40 +1,50 @@
-
 import { useState, useEffect } from "react";
-import { Users, Wallet, CheckCircle, AlertTriangle, BarChart3, TrendingUp } from "lucide-react";
+import { Users, Wallet, CheckCircle, AlertTriangle, BarChart3, TrendingUp, Shield, CreditCard, Activity } from "lucide-react";
 import api from "../../../utils/api";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    pendingKyc: 0,
-    pendingDeposits: 0,
-    totalVolume: 0,
-    todayMining: 0
+    users: { total: 0, active: 0, new_today: 0, weekly_growth: [] },
+    kyc: { pending: 0, verified: 0 },
+    transactions: { total_volume: 0, today_volume: 0 },
+    trading: { active_trades: 0, completed_trades: 0 },
+    wallets: { connected: 0 },
+    tasks: { active: 0 }
+  });
+  const [recentActivity, setRecentActivity] = useState({
+    recent_users: [],
+    recent_transactions: [],
+    pending_kyc: []
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardStats();
+    fetchDashboardData();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const response = await api.get('/admin/dashboard/stats');
-      setStats(response.data.data);
+      const [statsResponse, activityResponse] = await Promise.all([
+        api.get('/admin/dashboard/stats'),
+        api.get('/admin/dashboard/recent-activity')
+      ]);
+      
+      setStats(statsResponse.data.data);
+      setRecentActivity(activityResponse.data.data);
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, change }) => (
-    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+  const StatCard = ({ title, value, icon: Icon, color, subtitle, change }) => (
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-gray-600 transition-all">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-gray-400 text-sm mb-2">{title}</p>
           <p className="text-2xl font-bold text-white">{loading ? '...' : value}</p>
+          {subtitle && <p className="text-gray-400 text-sm mt-1">{subtitle}</p>}
           {change && (
             <p className={`text-sm ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
               {change > 0 ? '+' : ''}{change}% from last week
@@ -48,94 +58,139 @@ const AdminDashboard = () => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-800 rounded w-64 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-800 rounded-xl"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="min-h-screen bg-gray-900 p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
+        <p className="text-gray-400">Welcome to your administration panel</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Users"
-          value={stats.totalUsers}
+          value={stats.users.total}
           icon={Users}
           color="bg-blue-500"
-          change={12}
+          subtitle={`${stats.users.new_today} new today`}
         />
         <StatCard
           title="Active Users"
-          value={stats.activeUsers}
-          icon={TrendingUp}
+          value={stats.users.active}
+          icon={Activity}
           color="bg-green-500"
-          change={8}
+          subtitle={`${Math.round((stats.users.active / stats.users.total) * 100)}% active`}
         />
         <StatCard
           title="Pending KYC"
-          value={stats.pendingKyc}
+          value={stats.kyc.pending}
           icon={AlertTriangle}
           color="bg-yellow-500"
-          change={-5}
-        />
-        <StatCard
-          title="Pending Deposits"
-          value={stats.pendingDeposits}
-          icon={Wallet}
-          color="bg-orange-500"
-          change={15}
+          subtitle={`${stats.kyc.verified} verified`}
         />
         <StatCard
           title="Total Volume"
-          value={`$${stats.totalVolume}`}
-          icon={BarChart3}
+          value={`$${stats.transactions.total_volume.toLocaleString()}`}
+          icon={CreditCard}
           color="bg-purple-500"
-          change={20}
+          subtitle={`$${stats.transactions.today_volume.toLocaleString()} today`}
         />
         <StatCard
-          title="Today's Mining"
-          value={stats.todayMining}
-          icon={CheckCircle}
+          title="Active Trades"
+          value={stats.trading.active_trades}
+          icon={TrendingUp}
           color="bg-indigo-500"
-          change={25}
+          subtitle={`${stats.trading.completed_trades} completed`}
+        />
+        <StatCard
+          title="Connected Wallets"
+          value={stats.wallets.connected}
+          icon={Wallet}
+          color="bg-cyan-500"
+        />
+        <StatCard
+          title="Active Tasks"
+          value={stats.tasks.active}
+          icon={CheckCircle}
+          color="bg-emerald-500"
+        />
+        <StatCard
+          title="Security Score"
+          value="98%"
+          icon={Shield}
+          color="bg-gray-600"
+          subtitle="System Health"
         />
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity & Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Users */}
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">Recent Signups</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Recent Users</h3>
           <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold">
-                    U{i}
+            {recentActivity.recent_users.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+                    <Users size={16} className="text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">user{i}@example.com</p>
-                    <p className="text-gray-400 text-xs">2 hours ago</p>
+                    <p className="text-white font-medium">{user.username}</p>
+                    <p className="text-gray-400 text-sm">{user.email}</p>
                   </div>
                 </div>
-                <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
-                  Verified
-                </span>
+                <div className="text-right">
+                  <p className="text-gray-400 text-sm">{new Date(user.created_at).toLocaleDateString()}</p>
+                  <p className={`text-xs ${user.current_kyc?.status === 'verified' ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {user.current_kyc?.status || 'No KYC'}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
+        {/* Pending KYC */}
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">System Alerts</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Pending KYC Verification</h3>
           <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <AlertTriangle size={20} className="text-yellow-400" />
-              <div>
-                <p className="text-white text-sm font-medium">High withdrawal volume</p>
-                <p className="text-gray-400 text-xs">Monitor transaction limits</p>
+            {recentActivity.pending_kyc.map((kyc) => (
+              <div key={kyc.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <AlertTriangle size={16} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">{kyc.user?.username}</p>
+                    <p className="text-gray-400 text-sm">{kyc.document_type}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-400 text-sm">{new Date(kyc.created_at).toLocaleDateString()}</p>
+                  <p className="text-yellow-400 text-xs">Pending Review</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <CheckCircle size={20} className="text-green-400" />
-              <div>
-                <p className="text-white text-sm font-medium">System running smoothly</p>
-                <p className="text-gray-400 text-xs">All services operational</p>
-              </div>
-            </div>
+            ))}
+            {recentActivity.pending_kyc.length === 0 && (
+              <p className="text-gray-400 text-center py-4">No pending KYC requests</p>
+            )}
           </div>
         </div>
       </div>

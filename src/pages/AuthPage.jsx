@@ -22,6 +22,9 @@ export default function AuthPage() {
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const [resetToken, setResetToken] = useState("");
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationUserId, setVerificationUserId] = useState("");
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const recaptchaRef = useRef();
   
@@ -46,7 +49,7 @@ export default function AuthPage() {
     }
   }, [navigate]);
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm({
     resolver: yupResolver(
       forgotPasswordMode 
         ? forgotPasswordSchema 
@@ -56,6 +59,9 @@ export default function AuthPage() {
     ),
     mode: "onChange"
   });
+
+  // Watch form values to retain data
+  const formValues = watch();
 
   const onRecaptchaChange = (token) => {
     setRecaptchaToken(token);
@@ -70,15 +76,6 @@ export default function AuthPage() {
     setRecaptchaToken("");
     if (recaptchaRef.current) {
       recaptchaRef.current.reset();
-    }
-  };
-
-  // Handle resend verification email
-  const handleResendVerificationEmail = async () => {
-    try {
-      showToast("Please use the original verification email sent during registration", "info");
-    } catch (err) {
-      showToast("Failed to resend verification email", "error");
     }
   };
 
@@ -204,6 +201,17 @@ export default function AuthPage() {
           recaptcha_token: recaptchaToken
         });
 
+        // Check if email verification is required
+        if (response.data.status === 'email_verification_required') {
+          setEmailVerificationRequired(true);
+          setVerificationEmail(response.data.data.email);
+          setVerificationUserId(response.data.data.user_id);
+          showToast("Please verify your email address to login", "info");
+          setLoading(false);
+          resetRecaptcha();
+          return;
+        }
+
         // Check if 2FA is required
         if (response.data.status === '2fa_required') {
           setTwoFactorRequired(true);
@@ -259,9 +267,11 @@ export default function AuthPage() {
         });
 
         if (response.data.status === 'success') {
-          setEmailVerificationSent(true);
-          showToast("Registration successful! Please check your email to verify your account.", "success");
-          reset();
+          setEmailVerificationRequired(true);
+          setVerificationEmail(data.email);
+          setVerificationUserId(response.data.data.user_id);
+          showToast("Registration successful! Please verify your email.", "success");
+          // Don't reset form here to retain data if user needs to go back
         }
       }
 
@@ -283,6 +293,58 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
       resetRecaptcha();
+    }
+  };
+
+  const handleEmailVerification = async () => {
+    if (!verificationCode.trim() || verificationCode.length !== 6) {
+      showToast("Please enter a valid 6-digit code", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.post('/verify-email', {
+        email: verificationEmail,
+        code: verificationCode
+      });
+
+      const responseData = response.data.data;
+      const user = responseData.user;
+      const token = responseData.token;
+
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userData', JSON.stringify(user));
+      
+      showToast("Email verified successfully! Redirecting...", "success");
+      
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1000);
+
+    } catch (err) {
+      console.error('Email verification error:', err);
+      if (err.response?.data?.message) {
+        showToast(err.response.data.message, "error");
+      } else {
+        showToast("Invalid verification code", "error");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerificationCode = async () => {
+    setResendLoading(true);
+    try {
+      await api.post('/resend-verification', {
+        email: verificationEmail
+      });
+      showToast("Verification code sent successfully", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to resend code", "error");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -362,6 +424,7 @@ export default function AuthPage() {
     setForgotPasswordMode(false);
     setResetPasswordMode(false);
     setEmailVerificationSent(false);
+    setEmailVerificationRequired(false);
     setShowPassword(false);
     setShowConfirmPassword(false);
     reset();
@@ -372,6 +435,7 @@ export default function AuthPage() {
     setForgotPasswordMode(true);
     setTwoFactorRequired(false);
     setEmailVerificationSent(false);
+    setEmailVerificationRequired(false);
     reset();
     resetRecaptcha();
   };
@@ -381,6 +445,7 @@ export default function AuthPage() {
     setResetPasswordMode(false);
     setTwoFactorRequired(false);
     setEmailVerificationSent(false);
+    setEmailVerificationRequired(false);
     reset();
     resetRecaptcha();
   };
@@ -406,8 +471,8 @@ export default function AuthPage() {
     }
   }, [setValue]);
 
-  // Email Verification Success Page
-  if (emailVerificationSent) {
+  // Email Verification Required Page
+  if (emailVerificationRequired) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#2b014d] via-[#4a0976] to-[#5a1d85] p-4 font-['Poppins',sans-serif]">
         <div className="w-full max-w-md">
@@ -424,41 +489,56 @@ export default function AuthPage() {
               </svg>
               <h1 className="text-3xl font-bold text-white">MyToken</h1>
             </div>
+            <p className="text-gray-300 text-base">Email Verification Required</p>
           </div>
 
-          <div className="bg-white/5 rounded-xl border border-white/10 p-8 text-center">
-            <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </div>
-            
-            <h2 className="text-2xl font-semibold text-white mb-4">Verify Your Email</h2>
-            
-            <p className="text-gray-300 mb-6">
-              We've sent a verification link to your email address. 
-              Please check your inbox and click the link to verify your account.
-            </p>
-            
-            <p className="text-gray-400 text-sm mb-6">
-              Didn't receive the email? Check your spam folder or request a new verification link.
+          <div className="bg-white/5 rounded-xl border border-white/10 p-6">
+            <h2 className="text-2xl font-semibold text-white text-center mb-2">
+              Verify Your Email
+            </h2>
+            <p className="text-gray-400 text-center mb-6">
+              We've sent a 6-digit verification code to <strong>{verificationEmail}</strong>
             </p>
 
-            <div className="space-y-3">
-              <button
-                onClick={() => setEmailVerificationSent(false)}
-                className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition"
-              >
-                Back to Login
-              </button>
-              
-              <button
-                onClick={handleResendVerificationEmail}
-                className="w-full py-2 text-gray-400 hover:text-white transition text-sm"
-              >
-                Resend Verification Email
-              </button>
+            <div className="mb-4">
+              <label className="block text-white text-sm font-medium mb-2">
+                Verification Code
+              </label>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit code"
+                className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition text-center text-xl tracking-widest"
+                maxLength={6}
+              />
             </div>
+
+            <button
+              onClick={handleEmailVerification}
+              disabled={loading || verificationCode.length !== 6}
+              className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold rounded-lg hover:opacity-90 transition text-lg disabled:opacity-50 mb-3"
+            >
+              {loading ? "Verifying..." : "Verify Email"}
+            </button>
+
+            <button
+              onClick={handleResendVerificationCode}
+              disabled={resendLoading}
+              className="w-full py-2 text-gray-400 hover:text-white transition text-sm disabled:opacity-50"
+            >
+              {resendLoading ? "Sending..." : "Resend Code"}
+            </button>
+
+            <button
+              onClick={() => {
+                setEmailVerificationRequired(false);
+                setVerificationCode("");
+              }}
+              className="w-full py-2 text-gray-400 hover:text-white transition text-sm mt-2"
+            >
+              Back to Login
+            </button>
           </div>
         </div>
       </div>
@@ -812,6 +892,7 @@ export default function AuthPage() {
                     <input
                       type="text"
                       {...register("login")}
+                      defaultValue={formValues.login || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Enter your username or email"
                     />
@@ -827,6 +908,7 @@ export default function AuthPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       {...register("password")}
+                      defaultValue={formValues.password || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
                       placeholder="Enter your password"
                     />
@@ -873,6 +955,7 @@ export default function AuthPage() {
                     <input
                       type="text"
                       {...register("username")}
+                      defaultValue={formValues.username || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Choose a username"
                     />
@@ -888,6 +971,7 @@ export default function AuthPage() {
                     <input
                       type="email"
                       {...register("email")}
+                      defaultValue={formValues.email || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Enter your email address"
                     />
@@ -903,6 +987,7 @@ export default function AuthPage() {
                     <input
                       type="text"
                       {...register("firstname")}
+                      defaultValue={formValues.firstname || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Enter your first name"
                     />
@@ -918,6 +1003,7 @@ export default function AuthPage() {
                     <input
                       type="text"
                       {...register("lastname")}
+                      defaultValue={formValues.lastname || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Enter your last name"
                     />
@@ -933,6 +1019,7 @@ export default function AuthPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       {...register("password")}
+                      defaultValue={formValues.password || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
                       placeholder="Create a strong password"
                     />
@@ -964,6 +1051,7 @@ export default function AuthPage() {
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       {...register("confirmPassword")}
+                      defaultValue={formValues.confirmPassword || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition pr-12"
                       placeholder="Confirm your password"
                     />
@@ -995,6 +1083,7 @@ export default function AuthPage() {
                     <input
                       type="text"
                       {...register("referralCode")}
+                      defaultValue={formValues.referralCode || ""}
                       className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
                       placeholder="Enter referral code if any"
                     />

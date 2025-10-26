@@ -10,14 +10,15 @@ const api = axios.create({
 
 // Request interceptor
 api.interceptors.request.use(config => {
-  // Check if this is an admin route
-  const isAdminRoute = config.url.includes('/admin/');
+  // Better way to check if this is an admin route
+  const isAdminRoute = config.url?.startsWith('/admin') || config.url?.includes('/admin/');
   const token = localStorage.getItem(isAdminRoute ? 'adminToken' : 'authToken');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
+  console.log('API Request:', config.url, 'Token:', token ? 'Present' : 'Missing');
   return config;
 }, error => {
   return Promise.reject(error);
@@ -25,10 +26,15 @@ api.interceptors.request.use(config => {
 
 // Response interceptor
 api.interceptors.response.use(
-  response => response,
+  response => {
+    console.log('API Response Success:', response.config.url, response.status);
+    return response;
+  },
   error => {
+    console.log('API Response Error:', error.config?.url, error.response?.status, error.response?.data);
+    
     if (error.response?.status === 401) {
-      const isAdminRoute = error.config.url.includes('/admin/');
+      const isAdminRoute = error.config?.url?.includes('/admin/');
       
       if (isAdminRoute) {
         localStorage.removeItem('adminToken');

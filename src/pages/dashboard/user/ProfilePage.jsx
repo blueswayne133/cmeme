@@ -30,7 +30,7 @@ const ProfilePage = () => {
   // 2FA states
   const [authenticatorSecret, setAuthenticatorSecret] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [step, setStep] = useState('phone'); // phone, verify, authenticator, etc.
+  const [step, setStep] = useState('phone');
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
   // Avatar states
@@ -127,7 +127,6 @@ const ProfilePage = () => {
   const handleSaveAvatar = async () => {
     try {
       await api.post("/user/update-avatar", { avatar_url: selectedAvatar });
-      // Update local user data
       if (refetchUserData) {
         await refetchUserData();
       }
@@ -324,9 +323,9 @@ const ProfilePage = () => {
 
   const displayData = profileData || userData;
 
-  const ModalWrapper = ({ children, onClose }) => (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl relative">
+  const ModalWrapper = ({ children, onClose, size = "max-w-md" }) => (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+      <div className={`bg-gray-800 rounded-2xl w-full border border-gray-700 shadow-2xl relative max-h-[90vh] overflow-y-auto ${size}`}>
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-lg hover:bg-gray-700 transition-colors z-10"
@@ -343,7 +342,7 @@ const ProfilePage = () => {
     if (!showAvatarModal) return null;
 
     return (
-      <ModalWrapper onClose={resetModals}>
+      <ModalWrapper onClose={resetModals} size="max-w-lg">
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-100 mb-2">Choose Your Avatar</h2>
           <p className="text-gray-400 text-sm mb-6">
@@ -553,7 +552,7 @@ const ProfilePage = () => {
     if (!showAuthenticatorModal) return null;
 
     return (
-      <ModalWrapper onClose={resetModals}>
+      <ModalWrapper onClose={resetModals} size="max-w-lg">
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-100 mb-2">
             {step === 'authenticator' ? 'Setup Authenticator App' : 'Verify Authenticator'}
@@ -575,10 +574,10 @@ const ProfilePage = () => {
                   <div className="space-y-2">
                     <p className="text-gray-300 text-sm">Can't scan the QR code? Enter this code manually:</p>
                     <div className="flex items-center justify-between bg-gray-900 rounded-lg p-3 border border-gray-700">
-                      <code className="text-gray-100 font-mono text-sm">{authenticatorSecret}</code>
+                      <code className="text-gray-100 font-mono text-sm break-all">{authenticatorSecret}</code>
                       <button
                         onClick={() => handleCopy(authenticatorSecret)}
-                        className="p-2 rounded-lg hover:bg-gray-800 transition-colors ml-2"
+                        className="p-2 rounded-lg hover:bg-gray-800 transition-colors ml-2 flex-shrink-0"
                       >
                         {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} className="text-gray-400" />}
                       </button>
@@ -635,26 +634,26 @@ const ProfilePage = () => {
     }[toast.type];
 
     return (
-      <div className={`fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-xl shadow-lg z-50 transform transition-transform duration-300 animate-in slide-in-from-right`}>
+      <div className={`fixed top-4 right-4 left-4 md:left-auto ${bgColor} text-white px-6 py-3 rounded-xl shadow-lg z-50 transform transition-transform duration-300 animate-in slide-in-from-right md:slide-in-from-right`}>
         <div className="flex items-center space-x-2">
           <Check size={20} />
-          <span>{toast.message}</span>
+          <span className="text-sm md:text-base">{toast.message}</span>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
       {/* Toast Notifications */}
       <Toast />
 
       {/* Profile Header */}
-      <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-6">
-        <div className="flex items-center space-x-4">
+      <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
           <div 
             onClick={openAvatarModal}
-            className="w-20 h-20 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform relative"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform relative flex-shrink-0"
           >
             {displayData?.avatar_url ? (
               <img
@@ -663,31 +662,31 @@ const ProfilePage = () => {
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <User size={32} className="text-gray-900" />
+              <User size={24} className="text-gray-900 sm:w-8 sm:h-8" />
             )}
             <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-gray-900 text-xs font-bold px-2 py-1 rounded-full shadow">
-              <Edit size={12} />
+              <Edit size={10} />
             </div>
           </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-100">{displayData?.username}</h1>
-            <p className="text-gray-400">{displayData?.email}</p>
-            <div className="flex items-center space-x-2 mt-2">
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-100">{displayData?.username}</h1>
+            <p className="text-gray-400 text-sm sm:text-base">{displayData?.email}</p>
+            <div className="flex flex-wrap justify-center sm:justify-start items-center space-x-2 mt-2">
+              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                 displayData?.two_factor_enabled 
                   ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
                   : 'bg-red-500/20 text-red-400 border border-red-500/30'
               }`}>
                 {displayData?.two_factor_enabled ? '2FA Enabled' : '2FA Disabled'}
               </div>
-              <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-medium">
+              <div className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-medium">
                 Member
               </div>
             </div>
           </div>
           <button
             onClick={() => setShowSecurityModal(true)}
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm sm:text-base"
           >
             Manage Security
           </button>
@@ -695,10 +694,10 @@ const ProfilePage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-2 border-b border-gray-700">
+      <div className="flex space-x-2 border-b border-gray-700 overflow-x-auto">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`px-4 py-3 font-medium transition-colors relative ${
+          className={`px-3 py-2 sm:px-4 sm:py-3 font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${
             activeTab === 'profile'
               ? 'text-yellow-400'
               : 'text-gray-400 hover:text-gray-300'
@@ -711,7 +710,7 @@ const ProfilePage = () => {
         </button>
         <button
           onClick={() => setActiveTab('security')}
-          className={`px-4 py-3 font-medium transition-colors relative ${
+          className={`px-3 py-2 sm:px-4 sm:py-3 font-medium transition-colors relative whitespace-nowrap flex-shrink-0 ${
             activeTab === 'security'
               ? 'text-yellow-400'
               : 'text-gray-400 hover:text-gray-300'
@@ -726,29 +725,29 @@ const ProfilePage = () => {
 
       {/* Tab Content */}
       {activeTab === 'profile' && (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
           {/* Profile Information */}
-          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 space-y-6">
-            <h2 className="text-xl font-bold text-gray-100 flex items-center space-x-2">
-              <User size={24} />
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4 md:p-6 space-y-4 md:space-y-6">
+            <h2 className="text-lg md:text-xl font-bold text-gray-100 flex items-center space-x-2">
+              <User size={20} className="md:w-6 md:h-6" />
               <span>Profile Information</span>
             </h2>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-400">Username</label>
-                <p className="text-gray-100 font-medium">{displayData?.username}</p>
+                <p className="text-gray-100 font-medium text-sm md:text-base">{displayData?.username}</p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-gray-400">Email Address</label>
-                <p className="text-gray-100 font-medium">{displayData?.email}</p>
+                <p className="text-gray-100 font-medium text-sm md:text-base">{displayData?.email}</p>
               </div>
               
               <div>
                 <label className="text-sm font-medium text-gray-400">Phone Number</label>
                 <div className="flex items-center space-x-2">
-                  <p className="text-gray-100 font-medium">
+                  <p className="text-gray-100 font-medium text-sm md:text-base">
                     {displayData?.phone || 'Not set'}
                   </p>
                   {displayData?.phone_verified ? (
@@ -761,7 +760,7 @@ const ProfilePage = () => {
               
               <div>
                 <label className="text-sm font-medium text-gray-400">Member Since</label>
-                <p className="text-gray-100 font-medium">
+                <p className="text-gray-100 font-medium text-sm md:text-base">
                   {new Date(displayData?.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
@@ -773,7 +772,7 @@ const ProfilePage = () => {
               <div>
                 <label className="text-sm font-medium text-gray-400">Profile Avatar</label>
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
                     {displayData?.avatar_url ? (
                       <img
                         src={displayData.avatar_url}
@@ -781,12 +780,12 @@ const ProfilePage = () => {
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      <User size={20} className="text-gray-900" />
+                      <User size={16} className="text-gray-900 md:w-5 md:h-5" />
                     )}
                   </div>
                   <button
                     onClick={openAvatarModal}
-                    className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium transition-all"
+                    className="px-3 py-2 md:px-4 md:py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium transition-all text-sm"
                   >
                     Change Avatar
                   </button>
@@ -796,50 +795,50 @@ const ProfilePage = () => {
           </div>
 
           {/* Security Status */}
-          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 space-y-6">
-            <h2 className="text-xl font-bold text-gray-100 flex items-center space-x-2">
-              <ShieldCheck size={24} />
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4 md:p-6 space-y-4 md:space-y-6">
+            <h2 className="text-lg md:text-xl font-bold text-gray-100 flex items-center space-x-2">
+              <ShieldCheck size={20} className="md:w-6 md:h-6" />
               <span>Security Status</span>
             </h2>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Mail size={20} className="text-green-400" />
+            <div className="space-y-3 md:space-y-4">
+              <div className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3">
+                  <Mail size={16} className="text-green-400 md:w-5 md:h-5" />
                   <div>
-                    <p className="text-gray-100 font-medium">Email Verification</p>
-                    <p className="text-gray-400 text-sm">Your email is verified</p>
+                    <p className="text-gray-100 font-medium text-sm md:text-base">Email Verification</p>
+                    <p className="text-gray-400 text-xs md:text-sm">Your email is verified</p>
                   </div>
                 </div>
-                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-green-400"></div>
               </div>
               
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Smartphone size={20} className={displayData?.phone_verified ? "text-green-400" : "text-yellow-400"} />
+              <div className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3">
+                  <Smartphone size={16} className={`md:w-5 md:h-5 ${displayData?.phone_verified ? "text-green-400" : "text-yellow-400"}`} />
                   <div>
-                    <p className="text-gray-100 font-medium">Phone Verification</p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-100 font-medium text-sm md:text-base">Phone Verification</p>
+                    <p className="text-gray-400 text-xs md:text-sm">
                       {displayData?.phone_verified ? 'Phone is verified' : displayData?.phone ? 'Phone not verified' : 'Phone not set'}
                     </p>
                   </div>
                 </div>
-                <div className={`w-3 h-3 rounded-full ${
+                <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
                   displayData?.phone_verified ? 'bg-green-400' : displayData?.phone ? 'bg-yellow-400' : 'bg-red-400'
                 }`}></div>
               </div>
               
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Lock size={20} className={displayData?.two_factor_enabled ? "text-green-400" : "text-red-400"} />
+              <div className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-gray-900/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3">
+                  <Lock size={16} className={`md:w-5 md:h-5 ${displayData?.two_factor_enabled ? "text-green-400" : "text-red-400"}`} />
                   <div>
-                    <p className="text-gray-100 font-medium">Two-Factor Authentication</p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-100 font-medium text-sm md:text-base">Two-Factor Authentication</p>
+                    <p className="text-gray-400 text-xs md:text-sm">
                       {displayData?.two_factor_enabled ? '2FA is enabled' : '2FA is disabled'}
                     </p>
                   </div>
                 </div>
-                <div className={`w-3 h-3 rounded-full ${
+                <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${
                   displayData?.two_factor_enabled ? 'bg-green-400' : 'bg-red-400'
                 }`}></div>
               </div>
@@ -847,7 +846,7 @@ const ProfilePage = () => {
             
             <button
               onClick={() => setShowPasswordModal(true)}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full py-2 md:py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base"
             >
               Change Password
             </button>
@@ -856,30 +855,30 @@ const ProfilePage = () => {
       )}
 
       {activeTab === 'security' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Two-Factor Authentication */}
-          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-6">
-            <h2 className="text-xl font-bold text-gray-100 mb-2">Two-Factor Authentication</h2>
-            <p className="text-gray-400 mb-6">Add an extra layer of security to your account</p>
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-bold text-gray-100 mb-2">Two-Factor Authentication</h2>
+            <p className="text-gray-400 text-sm mb-4 md:mb-6">Add an extra layer of security to your account</p>
             
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {/* Authenticator App */}
-              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3 mb-4">
-                  <QrCode size={24} className="text-yellow-400" />
-                  <h3 className="text-lg font-semibold text-gray-100">Authenticator App</h3>
+              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-4 md:p-6 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3 mb-3 md:mb-4">
+                  <QrCode size={18} className="text-yellow-400 md:w-6 md:h-6" />
+                  <h3 className="text-base md:text-lg font-semibold text-gray-100">Authenticator App</h3>
                 </div>
-                <p className="text-gray-400 text-sm mb-4">
+                <p className="text-gray-400 text-xs md:text-sm mb-3 md:mb-4">
                   Use an authenticator app like Google Authenticator or Authy to generate verification codes.
                 </p>
                 {securitySettings?.authenticator_2fa_enabled ? (
-                  <div className="space-y-3">
-                    <div className="px-3 py-2 bg-green-500/20 text-green-400 rounded-lg text-sm text-center">
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="px-2 py-1 md:px-3 md:py-2 bg-green-500/20 text-green-400 rounded-lg text-xs md:text-sm text-center">
                       Enabled
                     </div>
                     <button
                       onClick={() => disable2FA('authenticator')}
-                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs md:text-sm"
                     >
                       Disable
                     </button>
@@ -887,7 +886,7 @@ const ProfilePage = () => {
                 ) : (
                   <button
                     onClick={() => enable2FA('authenticator')}
-                    className="w-full py-3 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full py-2 md:py-3 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base"
                   >
                     Enable
                   </button>
@@ -895,22 +894,22 @@ const ProfilePage = () => {
               </div>
 
               {/* Email Verification */}
-              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Mail size={24} className="text-blue-400" />
-                  <h3 className="text-lg font-semibold text-gray-100">Email Verification</h3>
+              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-4 md:p-6 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3 mb-3 md:mb-4">
+                  <Mail size={18} className="text-blue-400 md:w-6 md:h-6" />
+                  <h3 className="text-base md:text-lg font-semibold text-gray-100">Email Verification</h3>
                 </div>
-                <p className="text-gray-400 text-sm mb-4">
+                <p className="text-gray-400 text-xs md:text-sm mb-3 md:mb-4">
                   Receive verification codes via email when logging in from new devices.
                 </p>
                 {securitySettings?.email_2fa_enabled ? (
-                  <div className="space-y-3">
-                    <div className="px-3 py-2 bg-green-500/20 text-green-400 rounded-lg text-sm text-center">
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="px-2 py-1 md:px-3 md:py-2 bg-green-500/20 text-green-400 rounded-lg text-xs md:text-sm text-center">
                       Enabled
                     </div>
                     <button
                       onClick={() => disable2FA('email')}
-                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs md:text-sm"
                     >
                       Disable
                     </button>
@@ -918,7 +917,7 @@ const ProfilePage = () => {
                 ) : (
                   <button
                     onClick={() => enable2FA('email')}
-                    className="w-full py-3 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full py-2 md:py-3 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base"
                   >
                     Enable
                   </button>
@@ -926,22 +925,22 @@ const ProfilePage = () => {
               </div>
 
               {/* SMS Verification */}
-              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-colors">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Smartphone size={24} className="text-green-400" />
-                  <h3 className="text-lg font-semibold text-gray-100">SMS Verification</h3>
+              <div className="bg-gray-900/50 rounded-xl border border-gray-700 p-4 md:p-6 hover:border-gray-600 transition-colors">
+                <div className="flex items-center space-x-2 md:space-x-3 mb-3 md:mb-4">
+                  <Smartphone size={18} className="text-green-400 md:w-6 md:h-6" />
+                  <h3 className="text-base md:text-lg font-semibold text-gray-100">SMS Verification</h3>
                 </div>
-                <p className="text-gray-400 text-sm mb-4">
+                <p className="text-gray-400 text-xs md:text-sm mb-3 md:mb-4">
                   Receive verification codes via SMS to your registered phone number.
                 </p>
                 {securitySettings?.sms_2fa_enabled ? (
-                  <div className="space-y-3">
-                    <div className="px-3 py-2 bg-green-500/20 text-green-400 rounded-lg text-sm text-center">
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="px-2 py-1 md:px-3 md:py-2 bg-green-500/20 text-green-400 rounded-lg text-xs md:text-sm text-center">
                       Enabled
                     </div>
                     <button
                       onClick={() => disable2FA('sms')}
-                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                      className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs md:text-sm"
                     >
                       Disable
                     </button>
@@ -950,7 +949,7 @@ const ProfilePage = () => {
                   <button
                     onClick={() => enable2FA('sms')}
                     disabled={!displayData?.phone}
-                    className={`w-full py-3 rounded-lg font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                    className={`w-full py-2 md:py-3 rounded-lg font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base ${
                       displayData?.phone
                         ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900'
                         : 'bg-gray-700 text-gray-500 cursor-not-allowed transform-none'
@@ -964,29 +963,29 @@ const ProfilePage = () => {
           </div>
 
           {/* Backup Codes */}
-          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-gray-800/50 rounded-2xl border border-gray-700 p-4 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 md:mb-6 space-y-3 sm:space-y-0">
               <div>
-                <h2 className="text-xl font-bold text-gray-100">Backup Codes</h2>
-                <p className="text-gray-400 text-sm mt-1">
+                <h2 className="text-lg md:text-xl font-bold text-gray-100">Backup Codes</h2>
+                <p className="text-gray-400 text-xs md:text-sm mt-1">
                   Use these codes to access your account if you lose your 2FA device.
                 </p>
               </div>
               <button
                 onClick={generateBackupCodes}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full sm:w-auto px-4 py-2 md:px-6 md:py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base"
               >
                 Generate New Codes
               </button>
             </div>
             
             {displayData?.has_backup_codes && (
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                <div className="flex items-center space-x-2 text-yellow-400 mb-2">
-                  <Key size={16} />
-                  <span className="font-medium">Backup codes available</span>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 md:p-4">
+                <div className="flex items-center space-x-2 text-yellow-400 mb-1 md:mb-2">
+                  <Key size={14} className="md:w-4 md:h-4" />
+                  <span className="font-medium text-sm md:text-base">Backup codes available</span>
                 </div>
-                <p className="text-yellow-400/80 text-sm">
+                <p className="text-yellow-400/80 text-xs md:text-sm">
                   You have backup codes generated. Make sure to save them in a secure place.
                 </p>
               </div>
