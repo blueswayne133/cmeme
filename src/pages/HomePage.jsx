@@ -158,49 +158,46 @@ const HomePage = () => {
                 </div>
             </div>
 
-            {/* Platform Stats */}
-            <div className="px-4 pb-8">
-                <div className="max-w-2xl mx-auto bg-gray-900 rounded-3xl p-8 border border-gray-800">
-                    <h2 className="text-2xl font-bold text-center mb-8">
-                        Platform Stats
-                    </h2>
-                    
-                    {loading ? (
-                        <div className="flex justify-center py-8">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-6">
-                            <div className="text-center">
-                                <div className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">
-                                    {formatNumber(platformStats.active_miners)}
-                                </div>
-                                <div className="text-gray-400 text-sm">
-                                    Active Miners
-                                </div>
-                            </div>
-                            
-                            <div className="text-center">
-                                <div className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">
-                                    ₿{formatNumber(platformStats.total_mined)}
-                                </div>
-                                <div className="text-gray-400 text-sm">
-                                    Total Mined
-                                </div>
-                            </div>
-                            
-                            <div className="text-center">
-                                <div className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">
-                                    {platformStats.uptime}%
-                                </div>
-                                <div className="text-gray-400 text-sm">
-                                    Uptime
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+          
+{/* Platform Stats */}
+<div className="px-4 pb-8">
+  <div className="max-w-2xl mx-auto bg-gray-900 rounded-3xl p-8 border border-gray-800">
+    <h2 className="text-2xl font-bold text-center mb-8">Platform Stats</h2>
+
+    {loading ? (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+        {/* Active Miners */}
+        <div className="flex flex-col items-center break-words min-w-0">
+          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-2 truncate max-w-full">
+            {formatNumber(platformStats.active_miners)}
+          </div>
+          <div className="text-gray-400 text-sm">Active Miners</div>
+        </div>
+
+        {/* Total Mined */}
+        <div className="flex flex-col items-center break-words min-w-0">
+          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-2 truncate max-w-full">
+            ₿{formatNumber(platformStats.total_mined)}
+          </div>
+          <div className="text-gray-400 text-sm">Total Mined</div>
+        </div>
+
+        {/* Uptime */}
+        <div className="flex flex-col items-center break-words min-w-0">
+          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-400 mb-2 truncate max-w-full">
+            {platformStats.uptime}%
+          </div>
+          <div className="text-gray-400 text-sm">Uptime</div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
 
             {/* Footer Tagline */}
             <div className="px-4 pb-12">
