@@ -68,7 +68,7 @@ const HomePage = () => {
                         <div className="relative w-24 h-24 rounded-full overflow-hidden">
                             <img
                                 src={logo}
-                                alt="MyToken Logo"
+                                alt="CMEME TOKEN Logo"
                                 className="w-full h-full object-cover rounded-full"
                             />
                         </div>

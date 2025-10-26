@@ -487,7 +487,7 @@ export default function AuthPage() {
                 <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
                 <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
               </svg>
-              <h1 className="text-3xl font-bold text-white">MyToken</h1>
+              <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
             </div>
             <p className="text-gray-300 text-base">Email Verification Required</p>
           </div>
@@ -561,7 +561,7 @@ export default function AuthPage() {
                 <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
                 <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
               </svg>
-              <h1 className="text-3xl font-bold text-white">MyToken</h1>
+              <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
             </div>
             <p className="text-gray-300 text-base">
               {twoFactorData.is_device_verification ? 'Device Verification' : 'Two-Factor Authentication'}
@@ -659,7 +659,7 @@ export default function AuthPage() {
                 <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
                 <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
               </svg>
-              <h1 className="text-3xl font-bold text-white">MyToken</h1>
+              <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
             </div>
             <p className="text-gray-300 text-base">Reset Your Password</p>
           </div>
@@ -723,7 +723,7 @@ export default function AuthPage() {
                 <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
                 <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
               </svg>
-              <h1 className="text-3xl font-bold text-white">MyToken</h1>
+              <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
             </div>
             <p className="text-gray-300 text-base">Set New Password</p>
           </div>
@@ -848,7 +848,7 @@ export default function AuthPage() {
               <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
               <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
             </svg>
-            <h1 className="text-3xl font-bold text-white">MyToken</h1>
+            <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
           </div>
           <p className="text-gray-300 text-base">Start your mining journey today</p>
         </div>
