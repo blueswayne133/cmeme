@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock } from "lucide-react";
 import api from "../../../utils/api";
+import toast from "react-hot-toast";
+import { X } from "lucide-react";
 
 const P2PTradePage = () => {
   const [activeTab, setActiveTab] = useState('sell');
@@ -14,6 +16,9 @@ const P2PTradePage = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [tradeDetailModal, setTradeDetailModal] = useState(null);
   const { userData } = useOutletContext();
+
+  // Check if user is KYC verified
+  const isKycVerified = userData?.kyc_status === 'verified';
 
   useEffect(() => {
     fetchTrades();
@@ -28,31 +33,70 @@ const P2PTradePage = () => {
       setTrades(response.data.data.trades.data || []);
     } catch (error) {
       console.error('Error fetching trades:', error);
+      toast.error('Failed to fetch trades');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateTrade = async (formData) => {
+    if (!isKycVerified) {
+      toast.error('KYC verification required to create trades');
+      return;
+    }
+
     try {
       await api.post('/p2p/trades', formData);
       setCreateModalOpen(false);
       fetchTrades();
-      alert('Trade created successfully!');
+      toast.success('Trade created successfully!');
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to create trade');
+      const errorMessage = error.response?.data?.message || 'Failed to create trade';
+      toast.error(errorMessage);
+      throw error;
     }
   };
 
   const handleInitiateTrade = async (tradeId) => {
+    if (!isKycVerified) {
+      toast.error('KYC verification required to initiate trades');
+      return;
+    }
+
     try {
       await api.post(`/p2p/trades/${tradeId}/initiate`);
       setTradeDetailModal(null);
       fetchTrades();
-      alert('Trade initiated successfully!');
+      toast.success('Trade initiated successfully!');
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to initiate trade');
+      const errorMessage = error.response?.data?.message || 'Failed to initiate trade';
+      toast.error(errorMessage);
     }
+  };
+
+  // KYC Warning Banner
+  const KycWarningBanner = () => {
+    if (isKycVerified) return null;
+
+    return (
+      <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-2xl p-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Lock size={24} className="text-yellow-400" />
+          <div className="flex-1">
+            <h3 className="text-yellow-300 font-semibold">KYC Verification Required</h3>
+            <p className="text-yellow-200 text-sm">
+              You need to complete KYC verification to participate in P2P trading.
+            </p>
+          </div>
+          <button
+            onClick={() => window.location.href = '/dashboard/kyc'}
+            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold rounded-xl transition-all"
+          >
+            Verify KYC
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -60,13 +104,20 @@ const P2PTradePage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-100">P2P Trading</h2>
         <button
-          onClick={() => setCreateModalOpen(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold rounded-xl transition-all shadow-lg"
+          onClick={() => isKycVerified ? setCreateModalOpen(true) : toast.error('KYC verification required')}
+          className={`flex items-center gap-2 px-6 py-3 font-semibold rounded-xl transition-all shadow-lg ${
+            isKycVerified
+              ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900'
+              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+          }`}
         >
           <Plus size={20} />
           Create Trade
         </button>
       </div>
+
+      {/* KYC Warning */}
+      <KycWarningBanner />
 
       {/* Tabs */}
       <div className="flex bg-gray-800 rounded-xl p-1">
@@ -92,6 +143,7 @@ const P2PTradePage = () => {
         </button>
       </div>
 
+      {/* Rest of the component remains the same */}
       {/* Filters */}
       <div className="bg-gray-800/50 rounded-2xl p-4 border border-gray-700/50">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -107,6 +159,8 @@ const P2PTradePage = () => {
               <option value="wise">Wise</option>
               <option value="paypal">PayPal</option>
               <option value="revolut">Revolut</option>
+              <option value="usdc">USDC</option>
+              <option value="usdt">USDT</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -153,6 +207,7 @@ const P2PTradePage = () => {
                 onViewDetails={() => setTradeDetailModal(trade)}
                 onInitiate={() => handleInitiateTrade(trade.id)}
                 userData={userData}
+                isKycVerified={isKycVerified}
               />
             ))}
           </div>
@@ -165,6 +220,7 @@ const P2PTradePage = () => {
           onClose={() => setCreateModalOpen(false)}
           onSubmit={handleCreateTrade}
           userData={userData}
+          isKycVerified={isKycVerified}
         />
       )}
 
@@ -175,14 +231,15 @@ const P2PTradePage = () => {
           onClose={() => setTradeDetailModal(null)}
           onInitiate={handleInitiateTrade}
           userData={userData}
+          isKycVerified={isKycVerified}
         />
       )}
     </div>
   );
 };
 
-// Trade Card Component
-const TradeCard = ({ trade, onViewDetails, onInitiate, userData }) => {
+// Updated TradeCard Component with KYC check
+const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }) => {
   const isOwnTrade = trade.seller_id === userData?.id;
   
   return (
@@ -226,12 +283,22 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData }) => {
 
         <div className="flex flex-col gap-2">
           {!isOwnTrade ? (
-            <button
-              onClick={onInitiate}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
-            >
-              Trade
-            </button>
+            isKycVerified ? (
+              <button
+                onClick={onInitiate}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
+              >
+                Trade
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-6 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center gap-2"
+              >
+                <Lock size={16} />
+                Verify KYC
+              </button>
+            )
           ) : (
             <button
               disabled
@@ -253,8 +320,8 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData }) => {
   );
 };
 
-// Create Trade Modal Component
-const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
+// Updated CreateTradeModal Component
+const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   const [formData, setFormData] = useState({
     type: 'sell',
     amount: '',
@@ -262,31 +329,83 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
     payment_method: 'bank_transfer',
     payment_details: {},
     terms: '',
-    time_limit: 15
+    time_limit: 15,
+    custom_payment_method: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  const handleSubmit = (e) => {
+  // Prevent non-KYC users from accessing
+  useEffect(() => {
+    if (!isKycVerified) {
+      toast.error('KYC verification required to create trades');
+      onClose();
+    }
+  }, [isKycVerified, onClose]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate form
-    if (!formData.amount || !formData.price) {
-      alert('Please fill in all required fields');
+    if (!isKycVerified) {
+      toast.error('KYC verification required to create trades');
       return;
     }
 
+    setErrors({});
+    setLoading(true);
+
+    // Validation logic remains the same...
+    const newErrors = {};
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'Please enter a valid amount';
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      newErrors.price = 'Please enter a valid price';
+    }
+    if (formData.type === 'sell' && (!formData.terms || formData.terms.trim() === '')) {
+      newErrors.terms = 'Payment details are required for sell orders';
+    }
+    if (formData.payment_method === 'other' && (!formData.custom_payment_method || formData.custom_payment_method.trim() === '')) {
+      newErrors.custom_payment_method = 'Please specify the payment method';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setLoading(false);
+      return;
+    }
+
+    // Balance validation
     if (formData.type === 'sell' && (parseFloat(formData.amount) > userData?.token_balance)) {
-      alert('Insufficient CMEME balance');
+      setErrors({ amount: 'Insufficient CMEME balance' });
+      setLoading(false);
       return;
     }
 
     if (formData.type === 'buy' && (parseFloat(formData.amount) * parseFloat(formData.price) > userData?.usdc_balance)) {
-      alert('Insufficient USDC balance');
+      setErrors({ amount: 'Insufficient USDC balance' });
+      setLoading(false);
       return;
     }
 
-    onSubmit(formData);
+    try {
+      const submitData = {
+        ...formData,
+        payment_method: formData.payment_method === 'other' ? formData.custom_payment_method : formData.payment_method,
+        payment_details: formData.type === 'sell' ? {
+          instructions: formData.terms
+        } : {}
+      };
+
+      await onSubmit(submitData);
+    } catch (error) {
+      // Error handled in parent component
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Rest of the modal component remains the same...
   const updateFormData = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -298,6 +417,10 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
         total: (prev.amount * value).toFixed(2)
       })
     }));
+    
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const totalAmount = (parseFloat(formData.amount) || 0) * (parseFloat(formData.price) || 0);
@@ -309,13 +432,25 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
           <h2 className="text-xl font-bold text-gray-100">Create P2P Trade</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
+            disabled={loading}
           >
-            <AlertCircle size={20} className="text-gray-400" />
+            <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* KYC Verified Badge */}
+          {isKycVerified && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+              <div className="flex items-center gap-2 text-green-400">
+                <Shield size={16} />
+                <span className="text-sm font-medium">KYC Verified</span>
+              </div>
+            </div>
+          )}
+
+          {/* Rest of the form remains the same */}
           {/* Trade Type */}
           <div>
             <label className="block text-gray-300 text-sm font-medium mb-2">Trade Type</label>
@@ -336,6 +471,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
                     checked={formData.type === type}
                     onChange={(e) => updateFormData('type', e.target.value)}
                     className="sr-only"
+                    disabled={loading}
                   />
                   <span className="text-sm font-medium text-gray-200 text-center">
                     {type === 'sell' ? 'Sell CMEME' : 'Buy CMEME'}
@@ -357,10 +493,15 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
                 min="0.01"
                 value={formData.amount}
                 onChange={(e) => updateFormData('amount', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  errors.amount ? 'border-red-500' : 'border-gray-600'
+                }`}
                 placeholder="0.00"
-                required
+                disabled={loading}
               />
+              {errors.amount && (
+                <p className="text-red-400 text-xs mt-1">{errors.amount}</p>
+              )}
               <p className="text-xs text-gray-400 mt-1">
                 Available: {userData?.token_balance || 0} CMEME
               </p>
@@ -375,10 +516,15 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
                 min="0.0001"
                 value={formData.price}
                 onChange={(e) => updateFormData('price', e.target.value)}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  errors.price ? 'border-red-500' : 'border-gray-600'
+                }`}
                 placeholder="0.0000"
-                required
+                disabled={loading}
               />
+              {errors.price && (
+                <p className="text-red-400 text-xs mt-1">{errors.price}</p>
+              )}
             </div>
           </div>
 
@@ -399,30 +545,61 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
               value={formData.payment_method}
               onChange={(e) => updateFormData('payment_method', e.target.value)}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-              required
+              disabled={loading}
             >
               <option value="bank_transfer">Bank Transfer</option>
               <option value="wise">Wise</option>
               <option value="paypal">PayPal</option>
               <option value="revolut">Revolut</option>
+              <option value="usdc">USDC</option>
+              <option value="usdt">USDT</option>
               <option value="other">Other</option>
             </select>
           </div>
 
-          {/* Payment Details */}
-          <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Payment Details
-            </label>
-            <textarea
-              value={formData.terms}
-              onChange={(e) => updateFormData('terms', e.target.value)}
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-              placeholder="Provide your payment details (account number, PayPal email, etc.)"
-              rows="3"
-              required
-            />
-          </div>
+          {/* Custom Payment Method */}
+          {formData.payment_method === 'other' && (
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">
+                Specify Payment Method
+              </label>
+              <input
+                type="text"
+                value={formData.custom_payment_method}
+                onChange={(e) => updateFormData('custom_payment_method', e.target.value)}
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  errors.custom_payment_method ? 'border-red-500' : 'border-gray-600'
+                }`}
+                placeholder="Enter payment method name"
+                disabled={loading}
+              />
+              {errors.custom_payment_method && (
+                <p className="text-red-400 text-xs mt-1">{errors.custom_payment_method}</p>
+              )}
+            </div>
+          )}
+
+          {/* Payment Details - Only for sellers */}
+          {formData.type === 'sell' && (
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">
+                Payment Details & Instructions
+              </label>
+              <textarea
+                value={formData.terms}
+                onChange={(e) => updateFormData('terms', e.target.value)}
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  errors.terms ? 'border-red-500' : 'border-gray-600'
+                }`}
+                placeholder="Provide your payment details (account number, wallet address, PayPal email, etc.)"
+                rows="3"
+                disabled={loading}
+              />
+              {errors.terms && (
+                <p className="text-red-400 text-xs mt-1">{errors.terms}</p>
+              )}
+            </div>
+          )}
 
           {/* Time Limit */}
           <div>
@@ -434,7 +611,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
               value={formData.time_limit}
               onChange={(e) => updateFormData('time_limit', parseInt(e.target.value))}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-              required
+              disabled={loading}
             />
           </div>
 
@@ -442,7 +619,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
           {formData.type === 'sell' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
-                ℹ️ {formData.amount || 0} CMEME will be locked for this trade
+                ℹ️ {formData.amount || 0} CMEME will be locked for this trade until completion
               </p>
             </div>
           )}
@@ -450,7 +627,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
           {formData.type === 'buy' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
-                ℹ️ ${totalAmount.toFixed(2)} USDC will be locked for this trade
+                ℹ️ No funds will be locked. You'll pay after initiating the trade.
               </p>
             </div>
           )}
@@ -458,9 +635,14 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold transition-all shadow-lg"
+            disabled={loading || !isKycVerified}
+            className={`w-full py-3 rounded-xl font-semibold transition-all shadow-lg ${
+              loading || !isKycVerified
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900'
+            }`}
           >
-            Create Trade
+            {loading ? 'Creating Trade...' : 'Create Trade'}
           </button>
         </form>
       </div>
@@ -468,8 +650,8 @@ const CreateTradeModal = ({ onClose, onSubmit, userData }) => {
   );
 };
 
-// Trade Detail Modal Component
-const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
+// Updated TradeDetailModal Component
+const TradeDetailModal = ({ trade, onClose, onInitiate, userData, isKycVerified }) => {
   const isOwnTrade = trade.seller_id === userData?.id;
 
   return (
@@ -479,13 +661,26 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
           <h2 className="text-xl font-bold text-gray-100">Trade Details</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
           >
-            <AlertCircle size={20} className="text-gray-400" />
+            <X size={20} />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
+          {/* KYC Status */}
+          {!isKycVerified && !isOwnTrade && (
+            <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-yellow-300">
+                <Lock size={16} />
+                <span className="font-medium">KYC Verification Required</span>
+              </div>
+              <p className="text-yellow-200 text-sm mt-1">
+                You need to complete KYC verification to initiate this trade.
+              </p>
+            </div>
+          )}
+
           {/* Trade Info */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-900/50 rounded-xl p-4">
@@ -508,7 +703,9 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
 
           {/* Seller Info */}
           <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-100 mb-3">Seller Information</h3>
+            <h3 className="text-lg font-semibold text-gray-100 mb-3">
+              {trade.type === 'sell' ? 'Seller Information' : 'Buyer Information'}
+            </h3>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-lg font-bold text-gray-900">
                 {trade.seller?.username?.charAt(0).toUpperCase()}
@@ -525,22 +722,24 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
             </div>
           </div>
 
-          {/* Payment Details */}
-          <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Method:</span>
-                <span className="text-gray-100">{trade.payment_method_label}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 block mb-2">Instructions:</span>
-                <p className="text-gray-100 bg-gray-800 p-3 rounded-lg">
-                  {trade.terms || 'No specific instructions provided.'}
-                </p>
+          {/* Payment Details - Only show for sell orders */}
+          {trade.type === 'sell' && (
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Method:</span>
+                  <span className="text-gray-100">{trade.payment_method_label}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-2">Instructions:</span>
+                  <p className="text-gray-100 bg-gray-800 p-3 rounded-lg">
+                    {trade.terms || 'No specific instructions provided.'}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Trade Terms */}
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
@@ -556,12 +755,22 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
           {/* Action Buttons */}
           <div className="flex gap-3">
             {!isOwnTrade && trade.status === 'active' && (
-              <button
-                onClick={() => onInitiate(trade.id)}
-                className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
-              >
-                Start Trade
-              </button>
+              isKycVerified ? (
+                <button
+                  onClick={() => onInitiate(trade.id)}
+                  className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
+                >
+                  Start Trade
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Lock size={16} />
+                  Verify KYC
+                </button>
+              )
             )}
             {isOwnTrade && (
               <button
@@ -583,5 +792,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, userData }) => {
     </div>
   );
 };
+
+
 
 export default P2PTradePage;

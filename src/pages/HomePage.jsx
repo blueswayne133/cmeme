@@ -18,7 +18,7 @@ const HomePage = () => {
         const fetchPlatformStats = async () => {
             try {
                 setLoading(true)
-                const response = await api.get('/platform-stats')
+                const response = await api.get('/platform-statistics')
                 if (response.data.status === 'success') {
                     setPlatformStats(response.data.data)
                 }
