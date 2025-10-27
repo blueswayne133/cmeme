@@ -10,6 +10,7 @@ const ReferralsPage = () => {
     pending_referrals: 0,
     total_usdc_earned: 0,
     total_cmeme_earned: 0,
+    pending_usdc_balance: 0,
     referrals: {
       data: [],
       current_page: 1,
@@ -19,6 +20,7 @@ const ReferralsPage = () => {
   })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [claimingUSDC, setClaimingUSDC] = useState(false)
   const { userData, refetchUserData } = useOutletContext()
 
   useEffect(() => {
@@ -41,6 +43,35 @@ const ReferralsPage = () => {
     navigator.clipboard.writeText(userData?.referral_code || '')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleClaimUSDC = async () => {
+    if (!userData?.can_claim_referral_usdc) {
+      alert('USDC claiming is currently disabled by admin')
+      return
+    }
+
+    if (referralData.pending_usdc_balance <= 0) {
+      alert('No USDC available to claim')
+      return
+    }
+
+    try {
+      setClaimingUSDC(true)
+      const response = await api.post('/referrals/claim-usdc')
+      
+      alert(response.data.message)
+      
+      // Refresh data
+      await fetchReferralStats()
+      if (refetchUserData) await refetchUserData()
+      
+    } catch (error) {
+      console.error('Error claiming USDC:', error)
+      alert(error.response?.data?.message || 'Failed to claim USDC')
+    } finally {
+      setClaimingUSDC(false)
+    }
   }
 
   const formatDate = (dateString) => {
@@ -103,7 +134,7 @@ const ReferralsPage = () => {
         <div className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
           <div className="flex items-center gap-3">
             <DollarSign className="text-blue-400" size={24} />
-            <div>
+            <div className="flex-1">
               <p className="text-gray-400 text-sm">Total USDC Earned</p>
               <h2 className="text-3xl font-bold text-gray-100">
                 ${Number(referralData.total_usdc_earned || 0).toFixed(2)}
@@ -111,6 +142,34 @@ const ReferralsPage = () => {
               <p className="text-green-400 text-xs mt-1">
                 From {referralData.verified_referrals} verified referrals
               </p>
+              
+              {/* Claim USDC Button */}
+              {referralData.pending_usdc_balance > 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={handleClaimUSDC}
+                    disabled={!userData?.can_claim_referral_usdc || claimingUSDC}
+                    className="w-full py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {claimingUSDC ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Claiming...
+                      </>
+                    ) : (
+                      <>
+                        <DollarSign size={16} />
+                        Claim ${Number(referralData.pending_usdc_balance || 0).toFixed(2)} USDC
+                      </>
+                    )}
+                  </button>
+                  {!userData?.can_claim_referral_usdc && (
+                    <p className="text-yellow-400 text-xs mt-2 text-center">
+                      USDC claiming is currently disabled by admin
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -184,8 +243,7 @@ const ReferralsPage = () => {
           <div>
             <h3 className="text-green-400 font-semibold mb-1">Automatic Rewards</h3>
             <p className="text-green-300 text-sm">
-              Rewards are automatically added to your balance when referrals complete KYC verification. 
-              No need to claim manually!
+              CMEME rewards are automatically added to your balance. USDC rewards require manual claiming when enabled by admin.
             </p>
           </div>
         </div>
@@ -324,8 +382,8 @@ const ReferralsPage = () => {
         <h4 className="text-blue-400 font-semibold mb-3">How Referral Rewards Work</h4>
         <ul className="text-blue-300 text-sm space-y-2">
           <li>• <strong className="text-blue-200">0.1 USDC + 0.5 CMEME</strong> per verified referral</li>
-          <li>• Rewards are <strong className="text-green-400">automatically added</strong> to your balance when referrals complete KYC</li>
-          <li>• No manual claiming required - rewards appear instantly</li>
+          <li>• <strong className="text-green-400">CMEME rewards</strong> are automatically added to your balance</li>
+          <li>• <strong className="text-blue-400">USDC rewards</strong> require manual claiming when enabled by admin</li>
           <li>• Only verified referrals generate rewards</li>
           <li>• Check your main wallet balance to see earned rewards</li>
         </ul>
