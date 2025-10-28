@@ -40,6 +40,7 @@ const AdminLayout = () => {
     { path: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
     { path: '/admin/users', label: 'User Management', icon: Users },
     { path: '/admin/kyc', label: 'KYC Verifications', icon: Shield },
+    { path: '/admin/tasks', label: 'Task Management', icon: CheckCircle },
     { path: '/admin/deposits', label: 'Deposit Requests', icon: Wallet },
     { path: '/admin/transactions', label: 'Transactions', icon: FileText },
     { path: '/admin/settings', label: 'Settings', icon: Settings },

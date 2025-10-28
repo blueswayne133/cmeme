@@ -27,6 +27,7 @@ import UserDetail from './pages/dashboard/admin/UserDetail';
 import KycManagement from './pages/dashboard/admin/KycManagement';
 import TransactionManagement from './pages/dashboard/admin/TransactionManagement';
 import AdminSettings from './pages/dashboard/admin/AdminSettings';
+import AdminTaskManagement from './pages/dashboard/admin/AdminTaskManagement';
 
 const App = () => {
   return (
@@ -113,6 +114,7 @@ const App = () => {
           <Route path="users" element={<UserManagement />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="kyc" element={<KycManagement />} />
+          <Route path= "tasks" element= {<AdminTaskManagement />}/>
           <Route path="transactions" element={<TransactionManagement />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

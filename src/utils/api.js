@@ -51,3 +51,35 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+
+// Transaction management API calls
+export const transactionAPI = {
+  // Get all transactions with filters
+  getTransactions: (params = {}) => 
+    api.get('/admin/transactions', { params }),
+  
+  // Get single transaction
+  getTransaction: (id) => 
+    api.get(`/admin/transactions/${id}`),
+  
+  // Create transaction
+  createTransaction: (data) => 
+    api.post('/admin/transactions', data),
+  
+  // Update transaction
+  updateTransaction: (id, data) => 
+    api.put(`/admin/transactions/${id}`, data),
+  
+  // Delete transaction
+  deleteTransaction: (id) => 
+    api.delete(`/admin/transactions/${id}`),
+  
+  // Get transaction stats
+  getTransactionStats: () => 
+    api.get('/admin/transactions/stats/summary'),
+  
+  // Get users for dropdown
+  getUsers: (params = {}) => 
+    api.get('/admin/users', { params: { ...params, simple: true } }),
+};

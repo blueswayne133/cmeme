@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { CheckSquare, Play, TrendingUp, Twitter, Send, Clock, CheckCircle, Wallet, AlertCircle } from "lucide-react";
+import { CheckSquare, Play, TrendingUp, Twitter, Send, Clock, CheckCircle, Wallet, AlertCircle, X } from "lucide-react";
 import api from "../../../utils/api";
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,9 @@ const TasksPage = () => {
   const [stats, setStats] = useState({ completed_today: 0, total_earned_today: 0 });
   const [loading, setLoading] = useState(true);
   const [completingTask, setCompletingTask] = useState(null);
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [currentTask, setCurrentTask] = useState(null);
+  const [socialHandle, setSocialHandle] = useState('');
   const { userData, refetchUserData } = useOutletContext();
   const navigate = useNavigate();
 
@@ -40,10 +43,20 @@ const TasksPage = () => {
     }
   };
 
-  const handleCompleteTask = async (taskId) => {
+  const handleCompleteTask = async (taskId, socialHandle = null) => {
     try {
       setCompletingTask(taskId);
-      const response = await api.post(`/tasks/${taskId}/complete`);
+      
+      let response;
+      if (socialHandle) {
+        // For social tasks with handle
+        response = await api.post(`/tasks/${taskId}/complete`, {
+          social_handle: socialHandle
+        });
+      } else {
+        // For regular tasks
+        response = await api.post(`/tasks/${taskId}/complete`);
+      }
       
       if (response.data.status === 'success') {
         // Refresh both tasks and stats
@@ -55,6 +68,13 @@ const TasksPage = () => {
         }
         
         toast.success(response.data.message || 'Task completed successfully!');
+        
+        // Close modal if open
+        if (showSocialModal) {
+          setShowSocialModal(false);
+          setCurrentTask(null);
+          setSocialHandle('');
+        }
       }
     } catch (error) {
       console.error('Error completing task:', error);
@@ -94,6 +114,20 @@ const TasksPage = () => {
 
   const handleWalletTaskClick = () => {
     navigate('/dashboard/wallet');
+  };
+
+  const handleSocialTaskClick = (task) => {
+    setCurrentTask(task);
+    setShowSocialModal(true);
+  };
+
+  const submitSocialHandle = () => {
+    if (!socialHandle.trim()) {
+      toast.error('Please enter your social media handle');
+      return;
+    }
+
+    handleCompleteTask(currentTask.id, socialHandle.trim());
   };
 
   const getTaskIcon = (taskType) => {
@@ -197,6 +231,8 @@ const TasksPage = () => {
         handleClaimWalletBonus();
       }
       // If bonus already claimed, do nothing (button disabled)
+    } else if (task.type === 'connect_twitter' || task.type === 'connect_telegram') {
+      handleSocialTaskClick(task);
     } else {
       handleCompleteTask(task.id);
     }
@@ -259,6 +295,7 @@ const TasksPage = () => {
         {tasks.map((task) => {
           const status = getTaskStatus(task);
           const isWalletTask = task.type === 'connect_wallet';
+          const isSocialTask = task.type === 'connect_twitter' || task.type === 'connect_telegram';
           const isWalletConnected = userData?.hasConnectedWallet?.();
           const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
           
@@ -295,6 +332,11 @@ const TasksPage = () => {
                 {isWalletTask && isWalletConnected && (
                   <div className="text-xs text-green-400">
                     ✓ Wallet Connected
+                  </div>
+                )}
+                {isSocialTask && task.is_completed && (
+                  <div className="text-xs text-green-400">
+                    ✓ Connected
                   </div>
                 )}
               </div>
@@ -374,10 +416,77 @@ const TasksPage = () => {
                   </p>
                 </div>
               )}
+
+              {/* Social Task Instructions */}
+              {isSocialTask && !task.is_completed && (
+                <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                  <p className="text-blue-400 text-xs">
+                    Click to connect your {task.type === 'connect_twitter' ? 'Twitter' : 'Telegram'} account and earn {task.reward} CMEME!
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Social Media Handle Modal */}
+      {showSocialModal && currentTask && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {getTaskIcon(currentTask.type)}
+                <h3 className="text-lg font-bold text-gray-100">
+                  Connect {currentTask.type === 'connect_twitter' ? 'Twitter' : 'Telegram'}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSocialModal(false);
+                  setCurrentTask(null);
+                  setSocialHandle('');
+                }}
+                className="text-gray-400 hover:text-gray-300 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-gray-400 mb-4">
+              Enter your {currentTask.type === 'connect_twitter' ? 'Twitter' : 'Telegram'} handle to complete this task and earn {currentTask.reward} CMEME.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {currentTask.type === 'connect_twitter' ? 'Twitter Handle' : 'Telegram Username'}
+              </label>
+              <input
+                type="text"
+                value={socialHandle}
+                onChange={(e) => setSocialHandle(e.target.value)}
+                placeholder={currentTask.type === 'connect_twitter' ? '@username' : '@username'}
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+            </div>
+
+            <button
+              onClick={submitSocialHandle}
+              disabled={completingTask === currentTask.id || !socialHandle.trim()}
+              className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {completingTask === currentTask.id ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                  Connecting...
+                </div>
+              ) : (
+                `Connect & Earn ${currentTask.reward} CMEME`
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Info Box */}
       {tasks.length === 0 && (
