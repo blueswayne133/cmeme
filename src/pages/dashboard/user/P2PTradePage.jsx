@@ -252,7 +252,8 @@ const P2PTradePage = () => {
 
 // Updated TradeCard Component with KYC check
 const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }) => {
-  const isOwnTrade = trade.seller_id === userData?.id;
+ const isOwnTrade = String(trade.seller_id) === String(userData?.id);
+
   
   return (
     <div className="p-6 hover:bg-gray-800/30 transition-colors">
@@ -656,7 +657,8 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
 
 // Updated TradeDetailModal Component with Delete Functionality
 const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified }) => {
-  const isOwnTrade = trade.seller_id === userData?.id;
+  const isOwnTrade = String(trade.seller_id) === String(userData?.id);
+
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
