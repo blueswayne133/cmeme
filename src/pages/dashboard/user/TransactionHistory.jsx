@@ -1,16 +1,22 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ArrowUpRight, ArrowDownLeft, Download, Users, Clock, Filter } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Download, Users, Clock, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../../../utils/api";
 
 const TransactionHistory = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const { userData } = useOutletContext();
 
   useEffect(() => {
     fetchTransactions();
+  }, [filter]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filter changes
   }, [filter]);
 
   const fetchTransactions = async () => {
@@ -31,11 +37,28 @@ const TransactionHistory = () => {
         { id: 4, type: "p2p", amount: 25, token: "CMEME", date: "2024-01-12", status: "completed" },
         { id: 5, type: "deposit", amount: 100, token: "USDC", date: "2024-01-11", status: "pending", description: "USDC Deposit - Pending Approval" },
         { id: 6, type: "deposit", amount: 50, token: "USDC", date: "2024-01-10", status: "completed", description: "USDC Deposit - Approved" },
+        { id: 7, type: "send", amount: 75, token: "CMEME", date: "2024-01-09", status: "completed", description: "Transfer to UID123456" },
+        { id: 8, type: "receive", amount: 200, token: "CMEME", date: "2024-01-08", status: "completed", description: "Received from UID789123" },
+        { id: 9, type: "mining", amount: 15, token: "CMEME", date: "2024-01-07", status: "completed", description: "Mining Rewards" },
+        { id: 10, type: "p2p", amount: 30, token: "CMEME", date: "2024-01-06", status: "completed", description: "P2P Trade Completed" },
+        { id: 11, type: "send", amount: 45, token: "USDC", date: "2024-01-05", status: "completed", description: "Transfer to UID456123" },
+        { id: 12, type: "deposit", amount: 150, token: "USDC", date: "2024-01-04", status: "completed", description: "USDC Deposit" },
       ]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Get current transactions
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTransactions = transactions.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(transactions.length / itemsPerPage);
 
   const getTransactionIcon = (type) => {
     switch (type) {
@@ -113,43 +136,87 @@ const TransactionHistory = () => {
             <div className="text-gray-500 text-sm">Your transaction history will appear here</div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {transactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${getTransactionColor(transaction.type)}`}>
-                    {getTransactionIcon(transaction.type)}
+          <>
+            <div className="space-y-4 mb-6">
+              {currentTransactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-700/50 hover:border-gray-600/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${getTransactionColor(transaction.type)}`}>
+                      {getTransactionIcon(transaction.type)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-100 capitalize">
+                        {transaction.type} {transaction.token}
+                      </p>
+                      <p className="text-sm text-gray-400">{formatDate(transaction.date)}</p>
+                      {transaction.description && (
+                        <p className="text-xs text-gray-500 mt-1">{transaction.description}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-100 capitalize">
-                      {transaction.type} {transaction.token}
+                  <div className="text-right">
+                    <p className={`font-semibold ${
+                      transaction.type === 'send' || transaction.type === 'withdrawal' 
+                        ? 'text-red-400' 
+                        : 'text-green-400'
+                    }`}>
+                      {transaction.type === 'send' || transaction.type === 'withdrawal' ? '-' : '+'}{transaction.amount} {transaction.token}
                     </p>
-                    <p className="text-sm text-gray-400">{formatDate(transaction.date)}</p>
-                    {transaction.description && (
-                      <p className="text-xs text-gray-500 mt-1">{transaction.description}</p>
-                    )}
+                    <p className={`text-sm ${
+                      transaction.status === 'completed' ? 'text-green-400' :
+                      transaction.status === 'pending' ? 'text-yellow-400' :
+                      transaction.status === 'failed' ? 'text-red-400' :
+                      'text-gray-400'
+                    }`}>
+                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-semibold ${
-                    transaction.type === 'send' || transaction.type === 'withdrawal' 
-                      ? 'text-red-400' 
-                      : 'text-green-400'
-                  }`}>
-                    {transaction.type === 'send' || transaction.type === 'withdrawal' ? '-' : '+'}{transaction.amount} {transaction.token}
-                  </p>
-                  <p className={`text-sm ${
-                    transaction.status === 'completed' ? 'text-green-400' :
-                    transaction.status === 'pending' ? 'text-yellow-400' :
-                    transaction.status === 'failed' ? 'text-red-400' :
-                    'text-gray-400'
-                  }`}>
-                    {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                  </p>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t border-gray-700/50">
+                <div className="text-sm text-gray-400">
+                  Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, transactions.length)} of {transactions.length} transactions
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => paginate(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600/50 transition-colors"
+                  >
+                    <ChevronLeft size={16} className="text-gray-300" />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => paginate(page)}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === page
+                            ? 'bg-yellow-400 text-gray-900'
+                            : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => paginate(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg bg-gray-700/50 border border-gray-600/50 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600/50 transition-colors"
+                  >
+                    <ChevronRight size={16} className="text-gray-300" />
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
