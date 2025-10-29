@@ -289,7 +289,7 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }
             </div>
             <div>
               <p className="text-gray-400 text-sm">Payment</p>
-              <p className="text-gray-100 font-semibold">{trade.payment_method_label}</p>
+              <p className="text-gray-100 font-semibold">{trade.payment_method}</p>
             </div>
           </div>
         </div>
@@ -751,7 +751,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Method:</span>
-                  <span className="text-gray-100">{trade.payment_method_label}</span>
+                  <span className="text-gray-100">{trade.payment_method}</span>
                 </div>
                 <div>
                   <span className="text-gray-400 block mb-2">Instructions:</span>
