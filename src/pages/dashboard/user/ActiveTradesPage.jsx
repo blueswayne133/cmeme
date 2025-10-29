@@ -105,9 +105,10 @@ const ActiveTradesPage = () => {
 };
 
 const ActiveTradeCard = ({ trade, userData, onUploadProof, onConfirmPayment, onCancelTrade }) => {
-  const isSeller = trade.seller_id === userData?.id;
-  const isBuyer = trade.buyer_id === userData?.id;
-  const counterparty = isSeller ? trade.buyer : trade.seller;
+  const isSeller = String(trade.seller_id) === String(userData?.id);
+  const isBuyer = String(trade.buyer_id) === String(userData?.id);
+  const counterparty = isSeller ? trade.buyer : trade.seller; 
+  
 
   const [showUpload, setShowUpload] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -196,7 +197,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onConfirmPayment, onC
         </div>
         <div>
           <p className="text-gray-400">Payment Method</p>
-          <p className="text-gray-100 font-semibold">{trade.payment_method_label}</p>
+          <p className="text-gray-100 font-semibold">{trade.payment_method}</p>
         </div>
       </div>
 
