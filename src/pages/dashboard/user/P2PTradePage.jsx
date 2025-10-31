@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock, Trash2, X } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock, Trash2, X, AlertTriangle } from "lucide-react";
 import api from "../../../utils/api";
 import toast from "react-hot-toast";
 
@@ -252,9 +252,8 @@ const P2PTradePage = () => {
 
 // Updated TradeCard Component with KYC check
 const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }) => {
- const isOwnTrade = String(trade.seller_id) === String(userData?.id);
+  const isOwnTrade = String(trade.seller_id) === String(userData?.id);
 
-  
   return (
     <div className="p-6 hover:bg-gray-800/30 transition-colors">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -655,7 +654,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   );
 };
 
-// Updated TradeDetailModal Component with Delete Functionality
+// Updated TradeDetailModal Component with Delete Functionality and Bank Details
 const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
 
@@ -675,6 +674,10 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
       setDeleting(false);
     }
   };
+
+  // Get payment details
+  const paymentDetails = trade.payment_details || {};
+  const bankDetails = paymentDetails.instructions || trade.terms || 'No payment details provided';
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -703,6 +706,31 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
             </div>
           )}
 
+          {/* Trade Flow Information */}
+          {!isOwnTrade && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <h4 className="text-blue-300 font-semibold mb-3">How This Trade Works</h4>
+              <div className="space-y-2 text-blue-200 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
+                  <span>Click "Start Trade" to begin</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
+                  <span>View seller's bank details and make payment</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
+                  <span>Upload payment proof in Active Trades</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
+                  <span>Seller confirms receipt and releases tokens</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Trade Info */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-900/50 rounded-xl p-4">
@@ -722,6 +750,45 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               <p className="text-xl font-bold text-gray-100">{trade.time_limit}min</p>
             </div>
           </div>
+
+          {/* Payment Details - Show for all sell orders */}
+          {trade.type === 'sell' && (
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Method:</span>
+                  <span className="text-gray-100">{trade.payment_method}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-2">Payment Instructions:</span>
+                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                    <pre className="text-gray-100 whitespace-pre-wrap text-sm font-mono">
+                      {bankDetails}
+                    </pre>
+                  </div>
+                </div>
+                {paymentDetails.account_number && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Account Number:</span>
+                    <span className="text-gray-100 font-medium">{paymentDetails.account_number}</span>
+                  </div>
+                )}
+                {paymentDetails.account_name && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Account Name:</span>
+                    <span className="text-gray-100 font-medium">{paymentDetails.account_name}</span>
+                  </div>
+                )}
+                {paymentDetails.bank_name && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Bank Name:</span>
+                    <span className="text-gray-100 font-medium">{paymentDetails.bank_name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Seller Info */}
           <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
@@ -744,25 +811,6 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
             </div>
           </div>
 
-          {/* Payment Details - Only show for sell orders */}
-          {trade.type === 'sell' && (
-            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Method:</span>
-                  <span className="text-gray-100">{trade.payment_method}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block mb-2">Instructions:</span>
-                  <p className="text-gray-100 bg-gray-800 p-3 rounded-lg">
-                    {trade.terms || 'No specific instructions provided.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Trade Terms */}
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
             <h4 className="text-yellow-400 font-semibold mb-2">Important Information</h4>
@@ -771,6 +819,9 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               <li>• Upload payment proof after making the payment</li>
               <li>• Only proceed with payment after initiating the trade</li>
               <li>• Contact support if you encounter any issues</li>
+              {trade.type === 'sell' && (
+                <li>• Make payment only to the provided account details</li>
+              )}
             </ul>
           </div>
 
