@@ -77,7 +77,7 @@ const P2PHistoryPage = () => {
   };
 
   const getRole = (trade) => {
-    if (trade.seller_id === userData?.id) {
+     if (String(trade.seller_id) === String(userData?.id)) {
       return trade.type === 'sell' ? 'Seller' : 'Buy Order Creator';
     } else {
       return trade.type === 'sell' ? 'Buyer' : 'Seller';
@@ -85,7 +85,7 @@ const P2PHistoryPage = () => {
   };
 
   const getCounterparty = (trade) => {
-    if (trade.seller_id === userData?.id) {
+    if (String(trade.seller_id) === String(userData?.id)) {
       return trade.buyer?.username || 'Waiting for buyer...';
     } else {
       return trade.seller?.username || 'Unknown';
@@ -94,8 +94,8 @@ const P2PHistoryPage = () => {
 
   const canCancelTrade = (trade) => {
     // User can cancel if they are the creator (seller) and trade is active
-    // Or if they are involved in a processing trade
-    const isSeller = trade.seller_id === userData?.id;
+    // O const isSeller = trade.seller_id === userData?.id;r if they are involved in a processing trade
+     const isSeller = String(trade.seller_id) === String(userData?.id);
     
     if (trade.status === 'active' && isSeller) {
       return true;
@@ -109,7 +109,7 @@ const P2PHistoryPage = () => {
   };
 
   const getTradeAction = (trade) => {
-    if (trade.seller_id === userData?.id) {
+     if (String(trade.seller_id) === String(userData?.id)) {
       return trade.type === 'sell' ? 'Selling' : 'Buying';
     } else {
       return trade.type === 'sell' ? 'Buying' : 'Selling';
