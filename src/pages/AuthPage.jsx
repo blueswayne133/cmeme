@@ -7,6 +7,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { loginSchema, signupSchema, forgotPasswordSchema } from "../utils/validationSchemas";
 import api from "../utils/api.js";
 import { getUserFromLocalStorage, storeDeviceId, getDeviceId } from "../utils/localStorage";
+import logo from "../assets/logo.jpg.png"
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
@@ -839,15 +840,16 @@ export default function AuthPage() {
         {/* Logo + Subtitle */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-10 h-10 text-yellow-400"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M12 1.75A10.25 10.25 0 1 0 22.25 12 10.262 10.262 0 0 0 12 1.75Zm0 18.5A8.25 8.25 0 1 1 20.25 12 8.259 8.259 0 0 1 12 20.25Z" />
-              <path d="M11 7h2v6h-2Zm0 8h2v2h-2Z" />
-            </svg>
+    {/* Coin Icon */}
+                
+                        <div className="relative w-15 h-15 rounded-full overflow-hidden">
+                            <img
+                                src={logo}
+                                alt="CMEME TOKEN Logo"
+                                className="w-full h-full object-cover rounded-full"
+                            />
+                        </div>
+                 
             <h1 className="text-3xl font-bold text-white">CMEME TOKEN</h1>
           </div>
           <p className="text-gray-300 text-base">Start your mining journey today</p>
