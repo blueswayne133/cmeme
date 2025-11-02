@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock, Trash2, X, AlertTriangle } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Clock, User, DollarSign, Coins, Shield, AlertCircle, Plus, Eye, Lock, Trash2, X, AlertTriangle, MessageCircle, Send } from "lucide-react";
 import api from "../../../utils/api";
+import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const P2PTradePage = () => {
@@ -15,13 +16,56 @@ const P2PTradePage = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [tradeDetailModal, setTradeDetailModal] = useState(null);
   const { userData } = useOutletContext();
+  const echoRef = useRef(null);
 
   // Check if user is KYC verified
   const isKycVerified = userData?.kyc_status === 'verified';
 
   useEffect(() => {
     fetchTrades();
+    setupWebSockets();
+    
+    return () => {
+      if (echoRef.current) {
+        echoRef.current.disconnect();
+      }
+    };
   }, [activeTab, filters]);
+
+  const setupWebSockets = () => {
+    // Disconnect existing connection
+    if (echoRef.current) {
+      echoRef.current.disconnect();
+    }
+
+    // Initialize new Echo instance
+    echoRef.current = getEchoInstance();
+
+    // Listen for connection events
+    echoRef.current.connector.pusher.connection.bind('connected', () => {
+      console.log('✅ Pusher connected successfully for P2P trades');
+    });
+
+    echoRef.current.connector.pusher.connection.bind('error', (error) => {
+      console.error('❌ Pusher connection error:', error);
+    });
+
+    // Listen for public trade updates
+    echoRef.current.channel('p2p-trades')
+      .listen('.P2PTradeUpdated', (e) => {
+        console.log('📦 Trade update received:', e.trade);
+        setTrades(prevTrades => 
+          prevTrades.map(trade => 
+            trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
+          )
+        );
+        
+        // Update trade detail modal if open
+        if (tradeDetailModal && tradeDetailModal.id === e.trade.id) {
+          setTradeDetailModal(prev => ({ ...prev, ...e.trade }));
+        }
+      });
+  };
 
   const fetchTrades = async () => {
     try {
@@ -250,18 +294,18 @@ const P2PTradePage = () => {
   );
 };
 
-// Updated TradeCard Component with KYC check
+// TradeCard Component
 const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
 
   return (
-    <div className="p-6 hover:bg-gray-800/30 transition-colors">
+    <div className="p-4 md:p-6 hover:bg-gray-800/30 transition-colors">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex-1">
-          <div className="flex items-center gap-4 mb-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-3">
             <div className="flex items-center gap-2">
               <User size={16} className="text-gray-400" />
-              <span className="text-gray-300 font-medium">{trade.seller?.username}</span>
+              <span className="text-gray-300 font-medium text-sm md:text-base">{trade.seller?.username}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Shield size={14} className="text-green-400" />
@@ -273,39 +317,39 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div>
-              <p className="text-gray-400 text-sm">Price</p>
-              <p className="text-gray-100 font-semibold">${trade.price}</p>
+              <p className="text-gray-400 text-xs md:text-sm">Price</p>
+              <p className="text-gray-100 font-semibold text-sm md:text-base">${trade.price}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Available</p>
-              <p className="text-gray-100 font-semibold">{trade.amount} CMEME</p>
+              <p className="text-gray-400 text-xs md:text-sm">Available</p>
+              <p className="text-gray-100 font-semibold text-sm md:text-base">{trade.amount} CMEME</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Limit</p>
-              <p className="text-gray-100 font-semibold">${trade.total}</p>
+              <p className="text-gray-400 text-xs md:text-sm">Limit</p>
+              <p className="text-gray-100 font-semibold text-sm md:text-base">${trade.total}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Payment</p>
-              <p className="text-gray-100 font-semibold">{trade.payment_method}</p>
+              <p className="text-gray-400 text-xs md:text-sm">Payment</p>
+              <p className="text-gray-100 font-semibold text-sm md:text-base">{trade.payment_method}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 mt-4 lg:mt-0">
           {!isOwnTrade ? (
             isKycVerified ? (
               <button
                 onClick={onInitiate}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
+                className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all text-sm md:text-base"
               >
                 Trade
               </button>
             ) : (
               <button
                 disabled
-                className="px-6 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center gap-2"
+                className="px-4 md:px-6 py-2 md:py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center gap-2 text-sm md:text-base"
               >
                 <Lock size={16} />
                 Verify KYC
@@ -314,14 +358,14 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }
           ) : (
             <button
               disabled
-              className="px-6 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed"
+              className="px-4 md:px-6 py-2 md:py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed text-sm md:text-base"
             >
               Your Trade
             </button>
           )}
           <button
             onClick={onViewDetails}
-            className="flex items-center justify-center gap-2 px-6 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-medium rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 px-4 md:px-6 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-medium rounded-xl transition-colors text-sm md:text-base"
           >
             <Eye size={16} />
             Details
@@ -332,7 +376,7 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }
   );
 };
 
-// Updated CreateTradeModal Component
+// CreateTradeModal Component
 const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   const [formData, setFormData] = useState({
     type: 'sell',
@@ -366,7 +410,6 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
     setErrors({});
     setLoading(true);
 
-    // Validation logic remains the same...
     const newErrors = {};
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
@@ -374,8 +417,8 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
     if (!formData.price || parseFloat(formData.price) <= 0) {
       newErrors.price = 'Please enter a valid price';
     }
-    if (formData.type === 'sell' && (!formData.terms || formData.terms.trim() === '')) {
-      newErrors.terms = 'Payment details are required for sell orders';
+    if (!formData.terms || formData.terms.trim() === '') {
+      newErrors.terms = 'Payment details are required';
     }
     if (formData.payment_method === 'other' && (!formData.custom_payment_method || formData.custom_payment_method.trim() === '')) {
       newErrors.custom_payment_method = 'Please specify the payment method';
@@ -394,13 +437,24 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       return;
     }
 
+    if (formData.type === 'buy') {
+      const total = parseFloat(formData.amount) * parseFloat(formData.price);
+      if (total > userData?.usdc_balance) {
+        setErrors({ amount: 'Insufficient USDC balance for this trade' });
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const submitData = {
         ...formData,
         payment_method: formData.payment_method === 'other' ? formData.custom_payment_method : formData.payment_method,
-        payment_details: formData.type === 'sell' ? {
-          instructions: formData.terms
-        } : {}
+        payment_details: {
+          instructions: formData.terms,
+          account_name: userData?.name || userData?.username,
+          created_at: new Date().toISOString()
+        }
       };
 
       await onSubmit(submitData);
@@ -415,12 +469,6 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
-      ...(field === 'amount' && prev.price && {
-        total: (value * prev.price).toFixed(2)
-      }),
-      ...(field === 'price' && prev.amount && {
-        total: (prev.amount * value).toFixed(2)
-      })
     }));
     
     if (errors[field]) {
@@ -583,27 +631,25 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
             </div>
           )}
 
-          {/* Payment Details - Only for sellers */}
-          {formData.type === 'sell' && (
-            <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">
-                Payment Details & Instructions
-              </label>
-              <textarea
-                value={formData.terms}
-                onChange={(e) => updateFormData('terms', e.target.value)}
-                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
-                  errors.terms ? 'border-red-500' : 'border-gray-600'
-                }`}
-                placeholder="Provide your payment details (account number, wallet address, PayPal email, etc.)"
-                rows="3"
-                disabled={loading}
-              />
-              {errors.terms && (
-                <p className="text-red-400 text-xs mt-1">{errors.terms}</p>
-              )}
-            </div>
-          )}
+          {/* Payment Details */}
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              Payment Details & Instructions
+            </label>
+            <textarea
+              value={formData.terms}
+              onChange={(e) => updateFormData('terms', e.target.value)}
+              className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                errors.terms ? 'border-red-500' : 'border-gray-600'
+              }`}
+              placeholder="Provide your payment details (account number, wallet address, PayPal email, etc.)"
+              rows="3"
+              disabled={loading}
+            />
+            {errors.terms && (
+              <p className="text-red-400 text-xs mt-1">{errors.terms}</p>
+            )}
+          </div>
 
           {/* Time Limit */}
           <div>
@@ -631,7 +677,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
           {formData.type === 'buy' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
-                ℹ️ No funds will be locked. You'll pay after initiating the trade.
+                ℹ️ ${totalAmount.toFixed(2)} USDC will be locked for this trade until completion
               </p>
             </div>
           )}
@@ -654,11 +700,80 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   );
 };
 
-// Updated TradeDetailModal Component with Delete Functionality and Bank Details
+// TradeDetailModal Component with Real-time Chat
 const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
-
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const messagesEndRef = useRef(null);
+  const echoRef = useRef(null);
+
+  useEffect(() => {
+    fetchMessages();
+    setupPrivateChannel();
+    
+    return () => {
+      if (echoRef.current) {
+        echoRef.current.leave(`p2p-trade.${trade.id}`);
+      }
+    };
+  }, [trade?.id]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const setupPrivateChannel = () => {
+    if (echoRef.current) {
+      echoRef.current.leave(`p2p-trade.${trade.id}`);
+    }
+
+    echoRef.current = getEchoInstance();
+
+    // Join private trade channel for chat
+    echoRef.current.private(`p2p-trade.${trade.id}`)
+      .listen('.NewTradeMessage', (e) => {
+        console.log('New chat message:', e);
+        setMessages(prev => [...prev, e.message]);
+      })
+      .listen('.P2PTradeUpdated', (e) => {
+        console.log('Trade updated in modal:', e);
+        // You might want to update the trade data here
+      });
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const response = await api.get(`/p2p/trades/${trade.id}`);
+      setMessages(response.data.data.trade.messages || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    setSendingMessage(true);
+    try {
+      const response = await api.post(`/p2p/trades/${trade.id}/message`, {
+        message: newMessage
+      });
+      
+      setMessages(prev => [...prev, response.data.data.message]);
+      setNewMessage('');
+    } catch (error) {
+      toast.error('Failed to send message');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this trade? This action cannot be undone and your locked funds will be refunded.")) {
@@ -680,10 +795,10 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
   const bankDetails = paymentDetails.instructions || trade.terms || 'No payment details provided';
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
-          <h2 className="text-xl font-bold text-gray-100">Trade Details</h2>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+      <div className="bg-gray-800 rounded-2xl max-w-4xl w-full border border-gray-700 shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-700">
+          <h2 className="text-lg md:text-xl font-bold text-gray-100">Trade Details #{trade.id}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
@@ -692,196 +807,242 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* KYC Status */}
-          {!isKycVerified && !isOwnTrade && (
-            <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-yellow-300">
-                <Lock size={16} />
-                <span className="font-medium">KYC Verification Required</span>
-              </div>
-              <p className="text-yellow-200 text-sm mt-1">
-                You need to complete KYC verification to initiate this trade.
-              </p>
-            </div>
-          )}
-
-          {/* Trade Flow Information */}
-          {!isOwnTrade && (
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-              <h4 className="text-blue-300 font-semibold mb-3">How This Trade Works</h4>
-              <div className="space-y-2 text-blue-200 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
-                  <span>Click "Start Trade" to begin</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
-                  <span>View seller's bank details and make payment</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
-                  <span>Upload payment proof in Active Trades</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
-                  <span>Seller confirms receipt and releases tokens</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Trade Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-900/50 rounded-xl p-4">
-              <p className="text-gray-400 text-sm">Amount</p>
-              <p className="text-xl font-bold text-gray-100">{trade.amount} CMEME</p>
-            </div>
-            <div className="bg-gray-900/50 rounded-xl p-4">
-              <p className="text-gray-400 text-sm">Price</p>
-              <p className="text-xl font-bold text-gray-100">${trade.price}</p>
-            </div>
-            <div className="bg-gray-900/50 rounded-xl p-4">
-              <p className="text-gray-400 text-sm">Total</p>
-              <p className="text-xl font-bold text-gray-100">${trade.total} USD</p>
-            </div>
-            <div className="bg-gray-900/50 rounded-xl p-4">
-              <p className="text-gray-400 text-sm">Time Limit</p>
-              <p className="text-xl font-bold text-gray-100">{trade.time_limit}min</p>
-            </div>
-          </div>
-
-          {/* Payment Details - Show for all sell orders */}
-          {trade.type === 'sell' && (
-            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Method:</span>
-                  <span className="text-gray-100">{trade.payment_method}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 block mb-2">Payment Instructions:</span>
-                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                    <pre className="text-gray-100 whitespace-pre-wrap text-sm font-mono">
-                      {bankDetails}
-                    </pre>
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          {/* Trade Information */}
+          <div className="flex-1 p-4 md:p-6 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-700">
+            <div className="space-y-4">
+              {/* KYC Status */}
+              {!isKycVerified && !isOwnTrade && (
+                <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-yellow-300">
+                    <Lock size={16} />
+                    <span className="font-medium">KYC Verification Required</span>
                   </div>
+                  <p className="text-yellow-200 text-sm mt-1">
+                    You need to complete KYC verification to initiate this trade.
+                  </p>
                 </div>
-                {paymentDetails.account_number && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Account Number:</span>
-                    <span className="text-gray-100 font-medium">{paymentDetails.account_number}</span>
-                  </div>
-                )}
-                {paymentDetails.account_name && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Account Name:</span>
-                    <span className="text-gray-100 font-medium">{paymentDetails.account_name}</span>
-                  </div>
-                )}
-                {paymentDetails.bank_name && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Bank Name:</span>
-                    <span className="text-gray-100 font-medium">{paymentDetails.bank_name}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Seller Info */}
-          <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-100 mb-3">
-              {trade.type === 'sell' ? 'Seller Information' : 'Buyer Information'}
-            </h3>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-lg font-bold text-gray-900">
-                {trade.seller?.username?.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-gray-100 font-semibold">{trade.seller?.username}</p>
-                <p className="text-gray-400 text-sm">
-                  Success Rate: {trade.seller?.p2p_success_rate || 100}%
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Completed Trades: {trade.seller?.p2p_completed_trades || 0}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Trade Terms */}
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-            <h4 className="text-yellow-400 font-semibold mb-2">Important Information</h4>
-            <ul className="text-yellow-300 text-sm space-y-1">
-              <li>• You have {trade.time_limit} minutes to complete the payment</li>
-              <li>• Upload payment proof after making the payment</li>
-              <li>• Only proceed with payment after initiating the trade</li>
-              <li>• Contact support if you encounter any issues</li>
-              {trade.type === 'sell' && (
-                <li>• Make payment only to the provided account details</li>
               )}
-            </ul>
+
+              {/* Trade Flow Information */}
+              {!isOwnTrade && trade.status === 'active' && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                  <h4 className="text-blue-300 font-semibold mb-3">How This Trade Works</h4>
+                  <div className="space-y-2 text-blue-200 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
+                      <span>Click "Start Trade" to begin</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
+                      <span>View seller's bank details and make payment</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
+                      <span>Upload payment proof in Active Trades</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
+                      <span>Seller confirms receipt and releases tokens</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Trade Info */}
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="bg-gray-900/50 rounded-xl p-3 md:p-4">
+                  <p className="text-gray-400 text-xs md:text-sm">Amount</p>
+                  <p className="text-gray-100 font-semibold text-base md:text-xl">{trade.amount} CMEME</p>
+                </div>
+                <div className="bg-gray-900/50 rounded-xl p-3 md:p-4">
+                  <p className="text-gray-400 text-xs md:text-sm">Price</p>
+                  <p className="text-gray-100 font-semibold text-base md:text-xl">${trade.price}</p>
+                </div>
+                <div className="bg-gray-900/50 rounded-xl p-3 md:p-4">
+                  <p className="text-gray-400 text-xs md:text-sm">Total</p>
+                  <p className="text-gray-100 font-semibold text-base md:text-xl">${trade.total} USD</p>
+                </div>
+                <div className="bg-gray-900/50 rounded-xl p-3 md:p-4">
+                  <p className="text-gray-400 text-xs md:text-sm">Time Limit</p>
+                  <p className="text-gray-100 font-semibold text-base md:text-xl">{trade.time_limit}min</p>
+                </div>
+              </div>
+
+              {/* Payment Details */}
+              {trade.type === 'sell' && (
+                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Method:</span>
+                      <span className="text-gray-100">{trade.payment_method}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block mb-2">Payment Instructions:</span>
+                      <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                        <pre className="text-gray-100 whitespace-pre-wrap text-sm font-mono">
+                          {bankDetails}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Seller Info */}
+              <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                  {trade.type === 'sell' ? 'Seller Information' : 'Buyer Information'}
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-lg font-bold text-gray-900">
+                    {trade.seller?.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-gray-100 font-semibold">{trade.seller?.username}</p>
+                    <p className="text-gray-400 text-sm">
+                      Success Rate: {trade.seller?.p2p_success_rate || 100}%
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Completed Trades: {trade.seller?.p2p_completed_trades || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trade Terms */}
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                <h4 className="text-yellow-400 font-semibold mb-2">Important Information</h4>
+                <ul className="text-yellow-300 text-sm space-y-1">
+                  <li>• You have {trade.time_limit} minutes to complete the payment</li>
+                  <li>• Upload payment proof after making the payment</li>
+                  <li>• Only proceed with payment after initiating the trade</li>
+                  <li>• Contact support if you encounter any issues</li>
+                  {trade.type === 'sell' && (
+                    <li>• Make payment only to the provided account details</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {!isOwnTrade && trade.status === 'active' && (
+                  isKycVerified ? (
+                    <button
+                      onClick={() => onInitiate(trade.id)}
+                      className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
+                    >
+                      Start Trade
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Lock size={16} />
+                      Verify KYC
+                    </button>
+                  )
+                )}
+                
+                {isOwnTrade && trade.status === 'active' && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                  >
+                    {deleting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={16} />
+                        Delete Trade
+                      </>
+                    )}
+                  </button>
+                )}
+                
+                {isOwnTrade && trade.status !== 'active' && (
+                  <button
+                    disabled
+                    className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed"
+                  >
+                    Your Trade
+                  </button>
+                )}
+                
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-semibold rounded-xl transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            {!isOwnTrade && trade.status === 'active' && (
-              isKycVerified ? (
-                <button
-                  onClick={() => onInitiate(trade.id)}
-                  className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
-                >
-                  Start Trade
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Lock size={16} />
-                  Verify KYC
-                </button>
-              )
-            )}
-            
-            {isOwnTrade && trade.status === 'active' && (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
-              >
-                {deleting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={16} />
-                    Delete Trade
-                  </>
-                )}
-              </button>
-            )}
-            
-            {isOwnTrade && trade.status !== 'active' && (
-              <button
-                disabled
-                className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed"
-              >
-                Your Trade
-              </button>
-            )}
-            
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-semibold rounded-xl transition-colors"
-            >
-              Close
-            </button>
-          </div>
+          {/* Chat Section */}
+          {trade.status === 'processing' && (
+            <div className="w-full md:w-96 border-t md:border-t-0 md:border-l border-gray-700 flex flex-col">
+              <div className="p-4 border-b border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
+                  <MessageCircle size={20} />
+                  Trade Chat
+                </h3>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64 md:max-h-none">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`p-3 rounded-xl ${
+                      message.is_system
+                        ? 'bg-blue-500/10 border border-blue-500/20'
+                        : message.user_id === userData?.id
+                        ? 'bg-green-500/10 border border-green-500/20 ml-8'
+                        : 'bg-gray-700/50 border border-gray-600/50 mr-8'
+                    }`}
+                  >
+                    {!message.is_system && (
+                      <p className="text-xs text-gray-400 mb-1">
+                        {message.user_id === userData?.id ? 'You' : trade.getCounterparty?.(userData)?.username}
+                      </p>
+                    )}
+                    <p className="text-gray-200 text-sm">{message.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(message.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="p-4 border-t border-gray-700">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder="Type a message..."
+                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                    disabled={sendingMessage}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={sendingMessage || !newMessage.trim()}
+                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 disabled:text-gray-400 text-gray-900 font-semibold rounded-xl transition-all flex items-center gap-2"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -28,6 +28,8 @@ import KycManagement from './pages/dashboard/admin/KycManagement';
 import TransactionManagement from './pages/dashboard/admin/TransactionManagement';
 import AdminSettings from './pages/dashboard/admin/AdminSettings';
 import AdminTaskManagement from './pages/dashboard/admin/AdminTaskManagement';
+import DepositManagement from './pages/dashboard/admin/DepositManagement';
+import ReferralManagement from './pages/dashboard/user/ReferralManagement';
 
 const App = () => {
   return (
@@ -114,10 +116,13 @@ const App = () => {
           <Route path="users" element={<UserManagement />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="kyc" element={<KycManagement />} />
+          <Route path="deposits" element={<DepositManagement />} />
+          <Route path="referrals" element={<ReferralManagement />} />
           <Route path= "tasks" element= {<AdminTaskManagement />}/>
           <Route path="transactions" element={<TransactionManagement />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
+
 
         {/* 🛑 Fallback route */}
         <Route path="*" element={<Navigate to="/" replace />} />

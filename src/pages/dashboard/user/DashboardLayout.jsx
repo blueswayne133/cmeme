@@ -44,6 +44,17 @@ const DashboardLayout = () => {
   const [sendDescription, setSendDescription] = useState("");
   const [fundType, setFundType] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState("23:56:35");
+  const [settings, setSettings] = useState({
+    wallet: {
+      deposit_address: '',
+      network: 'base',
+      token: 'USDC',
+      min_deposit: 10
+    }
+  });
+  
+  // Deposit Wallet Address State
+  const [depositWalletAddress, setDepositWalletAddress] = useState("");
   
   // Avatar Modal States
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
@@ -83,6 +94,28 @@ const DashboardLayout = () => {
     setTimeout(() => setToast({ show: false, message: '', type: '' }), 4000);
   };
 
+  // Fetch deposit wallet address from settings
+  const fetchDepositWalletAddress = async () => {
+    try {
+
+         const response = await api.get('/admin/settings');
+            setSettings(response.data.data || {
+              wallet: {
+                deposit_address: '',
+                network: 'base',
+                token: 'USDC',
+                min_deposit: 10
+              }
+            });
+   
+      setDepositWalletAddress(response.data.data.address || '');
+    } catch (error) {
+      console.error('Error fetching deposit wallet:', error);
+      // Fallback to user's wallet address if settings fail
+      setDepositWalletAddress(userData?.walletAddress || '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb');
+    }
+  };
+
   useEffect(() => {
     const user = getUserFromLocalStorage();
     const token = localStorage.getItem('authToken');
@@ -94,6 +127,13 @@ const DashboardLayout = () => {
     
     fetchUserData();
   }, [navigate]);
+
+  // Fetch deposit wallet when user data is loaded
+  useEffect(() => {
+    if (userData) {
+      fetchDepositWalletAddress();
+    }
+  }, [userData]);
 
   // Countdown timer
   useEffect(() => {
@@ -509,10 +549,10 @@ const DashboardLayout = () => {
                 <p className="text-gray-400 text-sm">Deposit Wallet Address</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-gray-950 px-3 py-2 rounded-lg text-blue-400 font-mono text-xs break-all">
-                    {userData?.walletAddress || '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'}
+                    {settings.wallet?.deposit_address || 'Loading...'}
                   </code>
                   <button
-                    onClick={() => handleCopy(userData?.walletAddress)}
+                    onClick={() => handleCopy(settings.wallet?.deposit_address)}
                     className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors flex-shrink-0"
                   >
                     {copied ? (

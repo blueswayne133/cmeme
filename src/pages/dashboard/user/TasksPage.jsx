@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { CheckSquare, Play, TrendingUp, Twitter, Send, Clock, CheckCircle, Wallet, AlertCircle, X } from "lucide-react";
+import { CheckSquare, Play, TrendingUp, Twitter, Send, Clock, CheckCircle, Wallet, AlertCircle, X, ExternalLink } from "lucide-react";
 import api from "../../../utils/api";
 import toast from 'react-hot-toast';
 
@@ -18,7 +18,7 @@ const TasksPage = () => {
   useEffect(() => {
     fetchTasks();
     fetchTaskStats();
-  }, []);
+  }, [userData]); // Add userData as dependency to refresh when wallet status changes
 
   const fetchTasks = async () => {
     try {
@@ -39,37 +39,32 @@ const TasksPage = () => {
       setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching task stats:', error);
-      toast.error('Failed to load task statistics');
     }
   };
 
-  const handleCompleteTask = async (taskId, socialHandle = null) => {
+  const handleCompleteTask = async (taskId, socialHandle = null, proof = null) => {
     try {
       setCompletingTask(taskId);
       
-      let response;
+      const payload = {};
       if (socialHandle) {
-        // For social tasks with handle
-        response = await api.post(`/tasks/${taskId}/complete`, {
-          social_handle: socialHandle
-        });
-      } else {
-        // For regular tasks
-        response = await api.post(`/tasks/${taskId}/complete`);
+        payload.social_handle = socialHandle;
+      }
+      if (proof) {
+        payload.proof = proof;
       }
       
+      const response = await api.post(`/tasks/${taskId}/complete`, payload);
+      
       if (response.data.status === 'success') {
-        // Refresh both tasks and stats
         await Promise.all([fetchTasks(), fetchTaskStats()]);
         
-        // Refresh user data to update balances
         if (refetchUserData) {
           await refetchUserData();
         }
         
         toast.success(response.data.message || 'Task completed successfully!');
         
-        // Close modal if open
         if (showSocialModal) {
           setShowSocialModal(false);
           setCurrentTask(null);
@@ -78,35 +73,7 @@ const TasksPage = () => {
       }
     } catch (error) {
       console.error('Error completing task:', error);
-      
-      // Special handling for wallet connection task
-      if (error.response?.data?.message?.includes('wallet') || 
-          error.response?.data?.message?.includes('connect')) {
-        toast.error('Please connect your wallet first to complete this task.');
-        navigate('/dashboard/wallet');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to complete task');
-      }
-    } finally {
-      setCompletingTask(null);
-    }
-  };
-
-  const handleClaimWalletBonus = async () => {
-    try {
-      setCompletingTask('wallet_bonus');
-      const response = await api.post('/wallet/claim-bonus');
-      
-      if (response.data.status === 'success') {
-        await Promise.all([fetchTasks(), fetchTaskStats()]);
-        if (refetchUserData) {
-          await refetchUserData();
-        }
-        toast.success(response.data.message || 'Wallet bonus claimed successfully!');
-      }
-    } catch (error) {
-      console.error('Error claiming wallet bonus:', error);
-      toast.error(error.response?.data?.message || 'Failed to claim wallet bonus');
+      toast.error(error.response?.data?.message || 'Failed to complete task');
     } finally {
       setCompletingTask(null);
     }
@@ -119,6 +86,16 @@ const TasksPage = () => {
   const handleSocialTaskClick = (task) => {
     setCurrentTask(task);
     setShowSocialModal(true);
+  };
+
+  const handleEngagementTaskClick = (task) => {
+    if (task.action_url) {
+      window.open(task.action_url, '_blank', 'noopener,noreferrer');
+    }
+    // For engagement tasks, we'll complete them immediately after user action
+    setTimeout(() => {
+      handleCompleteTask(task.id);
+    }, 1000);
   };
 
   const submitSocialHandle = () => {
@@ -142,6 +119,16 @@ const TasksPage = () => {
         return <Send className="text-blue-500" size={24} />;
       case 'connect_wallet':
         return <Wallet className="text-purple-400" size={24} />;
+      case 'follow':
+      case 'like':
+      case 'comment':
+      case 'share':
+      case 'retweet':
+        return <Twitter className="text-sky-400" size={24} />;
+      case 'join_telegram':
+        return <Send className="text-blue-500" size={24} />;
+      case 'join_discord':
+        return <ExternalLink className="text-indigo-400" size={24} />;
       default:
         return <CheckSquare className="text-gray-400" size={24} />;
     }
@@ -158,16 +145,29 @@ const TasksPage = () => {
 
     // Special handling for wallet task
     if (task.type === 'connect_wallet') {
-      const isWalletConnected = userData?.hasConnectedWallet?.();
-      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      const isWalletConnected = userData?.wallet_address;
       
       if (!isWalletConnected) {
         return 'Connect Wallet';
-      } else if (isWalletConnected && !hasClaimedBonus) {
-        return 'Claim 0.5 CMEME';
-      } else if (hasClaimedBonus) {
-        return 'Bonus Claimed';
+      } else {
+        return 'Completed';
       }
+    }
+    
+    // Social connection tasks
+    if (task.type === 'connect_twitter' || task.type === 'connect_telegram') {
+      return 'Connect Account';
+    }
+    
+    // Engagement tasks with action URLs
+    if (task.action_url) {
+      if (task.type === 'follow') return 'Follow Now';
+      if (task.type === 'like') return 'Like Post';
+      if (task.type === 'comment') return 'Comment Now';
+      if (task.type === 'share') return 'Share Now';
+      if (task.type === 'retweet') return 'Retweet Now';
+      if (task.type === 'join_telegram') return 'Join Telegram';
+      if (task.type === 'join_discord') return 'Join Discord';
     }
     
     if (task.type === 'watch_ads') {
@@ -181,14 +181,9 @@ const TasksPage = () => {
     if (completingTask === task.id) return true;
     if (task.is_completed) return true;
     
-    // Special logic for wallet task
-    if (task.type === 'connect_wallet') {
-      const isWalletConnected = userData?.hasConnectedWallet?.();
-      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
-      
-      if (!isWalletConnected) return false; // Allow navigation to wallet page
-      if (isWalletConnected && hasClaimedBonus) return true; // Disable if bonus claimed
-      return false; // Allow claiming bonus
+    // Wallet task is completed automatically when wallet is connected
+    if (task.type === 'connect_wallet' && userData?.wallet_address) {
+      return true;
     }
     
     if (!task.can_complete) return true;
@@ -200,16 +195,14 @@ const TasksPage = () => {
       return { text: 'Completed', color: 'text-green-400', bg: 'bg-green-500/20' };
     }
     
+    // Wallet task status
     if (task.type === 'connect_wallet') {
-      const isWalletConnected = userData?.hasConnectedWallet?.();
-      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+      const isWalletConnected = userData?.wallet_address;
       
-      if (!isWalletConnected) {
+      if (isWalletConnected) {
+        return { text: 'Completed', color: 'text-green-400', bg: 'bg-green-500/20' };
+      } else {
         return { text: 'Connect Wallet', color: 'text-yellow-400', bg: 'bg-yellow-500/20' };
-      } else if (isWalletConnected && !hasClaimedBonus) {
-        return { text: 'Claim Bonus', color: 'text-blue-400', bg: 'bg-blue-500/20' };
-      } else if (hasClaimedBonus) {
-        return { text: 'Bonus Claimed', color: 'text-green-400', bg: 'bg-green-500/20' };
       }
     }
     
@@ -222,17 +215,15 @@ const TasksPage = () => {
 
   const handleTaskAction = (task) => {
     if (task.type === 'connect_wallet') {
-      const isWalletConnected = userData?.hasConnectedWallet?.();
-      const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
-      
-      if (!isWalletConnected) {
+      if (!userData?.wallet_address) {
         handleWalletTaskClick();
-      } else if (isWalletConnected && !hasClaimedBonus) {
-        handleClaimWalletBonus();
       }
-      // If bonus already claimed, do nothing (button disabled)
+      // If wallet is connected, do nothing (task is auto-completed)
     } else if (task.type === 'connect_twitter' || task.type === 'connect_telegram') {
       handleSocialTaskClick(task);
+    } else if (task.action_url) {
+      // Engagement tasks with external URLs
+      handleEngagementTaskClick(task);
     } else {
       handleCompleteTask(task.id);
     }
@@ -296,8 +287,8 @@ const TasksPage = () => {
           const status = getTaskStatus(task);
           const isWalletTask = task.type === 'connect_wallet';
           const isSocialTask = task.type === 'connect_twitter' || task.type === 'connect_telegram';
-          const isWalletConnected = userData?.hasConnectedWallet?.();
-          const hasClaimedBonus = userData?.walletDetail?.bonus_claimed;
+          const isEngagementTask = task.action_url && !isSocialTask && !isWalletTask;
+          const isWalletConnected = userData?.wallet_address;
           
           return (
             <div
@@ -364,8 +355,8 @@ const TasksPage = () => {
                     ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                     : isWalletTask && !isWalletConnected
                     ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-lg hover:shadow-xl'
-                    : isWalletTask && isWalletConnected && !hasClaimedBonus
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg hover:shadow-xl'
+                    : isEngagementTask
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg hover:shadow-xl'
                     : 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 shadow-lg hover:shadow-xl'
                 }`}
               >
@@ -378,7 +369,7 @@ const TasksPage = () => {
                   <div className="flex items-center justify-center gap-2">
                     {task.is_completed && <CheckCircle size={16} />}
                     {isWalletTask && !isWalletConnected && <Wallet size={16} />}
-                    {isWalletTask && isWalletConnected && !hasClaimedBonus && <CheckCircle size={16} />}
+                    {isEngagementTask && <ExternalLink size={16} />}
                     {getTaskButtonText(task)}
                   </div>
                 )}
@@ -389,7 +380,7 @@ const TasksPage = () => {
                 <span>
                   {task.type === 'daily_streak' && 'Resets in 24h'}
                   {task.type === 'watch_ads' && 'Resets daily'}
-                  {task.type.includes('connect') && 'One-time reward'}
+                  {(task.type.includes('connect') || isEngagementTask) && 'One-time reward'}
                 </span>
                 {task.cooldown_minutes > 0 && (
                   <span className="flex items-center gap-1">
@@ -403,16 +394,16 @@ const TasksPage = () => {
               {isWalletTask && !isWalletConnected && (
                 <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                   <p className="text-blue-400 text-xs">
-                    Click to connect your Base Network wallet and claim your 0.5 CMEME bonus!
+                    Click to connect your Base Network wallet and automatically earn {task.reward} CMEME!
                   </p>
                 </div>
               )}
 
-              {/* Wallet Task Claim Instructions */}
-              {isWalletTask && isWalletConnected && !hasClaimedBonus && (
+              {/* Wallet Task Completed Message */}
+              {isWalletTask && isWalletConnected && (
                 <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
                   <p className="text-green-400 text-xs">
-                    Wallet connected! Click above to claim your 0.5 CMEME bonus.
+                    ✓ Wallet connected! You've earned {task.reward} CMEME automatically.
                   </p>
                 </div>
               )}
@@ -422,6 +413,15 @@ const TasksPage = () => {
                 <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                   <p className="text-blue-400 text-xs">
                     Click to connect your {task.type === 'connect_twitter' ? 'Twitter' : 'Telegram'} account and earn {task.reward} CMEME!
+                  </p>
+                </div>
+              )}
+
+              {/* Engagement Task Instructions */}
+              {isEngagementTask && !task.is_completed && (
+                <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                  <p className="text-blue-400 text-xs">
+                    Click to complete this task and earn {task.reward} CMEME automatically!
                   </p>
                 </div>
               )}

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Check, X, Clock, AlertTriangle, Ban, RefreshCw } from "lucide-react";
+import { Check, X, Clock, AlertTriangle, Ban, RefreshCw, FileText, MessageCircle, Shield } from "lucide-react";
 import api from "../../../utils/api";
+import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const P2PHistoryPage = () => {
@@ -9,10 +10,37 @@ const P2PHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const { userData } = useOutletContext();
+  const echoRef = useRef(null);
 
   useEffect(() => {
     fetchTradeHistory();
+    setupWebSockets();
+    
+    return () => {
+      if (echoRef.current) {
+        echoRef.current.disconnect();
+      }
+    };
   }, [filter]);
+
+  const setupWebSockets = () => {
+    if (echoRef.current) {
+      echoRef.current.disconnect();
+    }
+
+    echoRef.current = getEchoInstance();
+
+    // Listen for trade updates
+    echoRef.current.channel('p2p-trades')
+      .listen('.P2PTradeUpdated', (e) => {
+        console.log('History trade updated:', e.trade);
+        setTrades(prevTrades => 
+          prevTrades.map(trade => 
+            trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
+          )
+        );
+      });
+  };
 
   const fetchTradeHistory = async () => {
     try {
@@ -24,7 +52,7 @@ const P2PHistoryPage = () => {
       console.log('Trade history response:', response.data);
       
       // Filter to show only trades where user participated (as buyer or seller)
-      const allTrades = response.data.data?.trades || response.data.data || [];
+      const allTrades = response.data.data?.trades?.data || response.data.data?.trades || [];
       const userTrades = allTrades.filter(trade => 
         trade.buyer_id === userData?.id || // User participated as buyer
         trade.seller_id === userData?.id   // User participated as seller
@@ -94,14 +122,14 @@ const P2PHistoryPage = () => {
 
   const canCancelTrade = (trade) => {
     // User can cancel if they are the creator (seller) and trade is active
-    // O const isSeller = trade.seller_id === userData?.id;r if they are involved in a processing trade
+    // Or if they are involved in a processing trade
      const isSeller = String(trade.seller_id) === String(userData?.id);
     
     if (trade.status === 'active' && isSeller) {
       return true;
     }
     
-    if (trade.status === 'processing' && isSeller) {
+    if (trade.status === 'processing' && (isSeller || String(trade.buyer_id) === String(userData?.id))) {
       return true;
     }
     
@@ -110,9 +138,15 @@ const P2PHistoryPage = () => {
 
   const getTradeAction = (trade) => {
      if (String(trade.seller_id) === String(userData?.id)) {
-      return trade.type === 'sell' ? 'Selling' : 'Buying';
+      return trade.type === 'sell' ? 'Sold' : 'Bought';
     } else {
-      return trade.type === 'sell' ? 'Buying' : 'Selling';
+      return trade.type === 'sell' ? 'Bought' : 'Sold';
+    }
+  };
+
+  const viewProof = (proof) => {
+    if (proof.file_path) {
+      window.open(`${import.meta.env.VITE_API_URL}/storage/${proof.file_path}`, '_blank');
     }
   };
 
@@ -135,7 +169,7 @@ const P2PHistoryPage = () => {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                className={`px-3 py-2 rounded-xl font-medium transition-all text-sm md:text-base ${
                   filter === status
                     ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900'
                     : 'bg-gray-800 text-gray-400 hover:text-gray-200'
@@ -164,32 +198,32 @@ const P2PHistoryPage = () => {
       ) : (
         <div className="space-y-4">
           {trades.map((trade) => (
-            <div key={trade.id} className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+            <div key={trade.id} className="bg-gray-800/50 rounded-2xl p-4 md:p-6 border border-gray-700/50">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 md:gap-4">
                   {getStatusIcon(trade.status)}
                   <div>
-                    <p className="text-gray-100 font-semibold">
+                    <p className="text-gray-100 font-semibold text-sm md:text-base">
                       {getTradeAction(trade)} {trade.amount} CMEME
                     </p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-400 text-xs md:text-sm">
                       {new Date(trade.created_at).toLocaleDateString()} at {new Date(trade.created_at).toLocaleTimeString()}
                     </p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-400 text-xs md:text-sm">
                       Trade ID: #{trade.id} • Role: {getRole(trade)}
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(trade.status)}`}>
+                  <div className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium ${getStatusColor(trade.status)}`}>
                     {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
                   </div>
                   
                   {canCancelTrade(trade) && (
                     <button
                       onClick={() => handleCancelTrade(trade.id)}
-                      className="flex items-center gap-2 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all"
+                      className="flex items-center gap-2 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all text-xs md:text-sm"
                     >
                       <Ban size={14} />
                       Cancel
@@ -198,36 +232,76 @@ const P2PHistoryPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-sm mb-4">
                 <div>
-                  <p className="text-gray-400">Price</p>
-                  <p className="text-gray-100 font-semibold">${trade.price}</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Price</p>
+                  <p className="text-gray-100 font-semibold text-sm md:text-base">${trade.price}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Total Value</p>
-                  <p className="text-gray-100 font-semibold">${trade.total} USD</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Total Value</p>
+                  <p className="text-gray-100 font-semibold text-sm md:text-base">${trade.total} USD</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Counterparty</p>
-                  <p className="text-gray-100 font-semibold">{getCounterparty(trade)}</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Counterparty</p>
+                  <p className="text-gray-100 font-semibold text-sm md:text-base">{getCounterparty(trade)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Payment Method</p>
-                  <p className="text-gray-100 font-semibold">
+                  <p className="text-gray-400 text-xs md:text-sm">Payment Method</p>
+                  <p className="text-gray-100 font-semibold text-sm md:text-base">
                     {trade.payment_method_label || trade.payment_method}
                   </p>
                 </div>
               </div>
 
+              {/* Proofs Section */}
+              {trade.proofs && trade.proofs.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-gray-400 text-sm mb-2">Payment Proofs:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {trade.proofs.map((proof) => (
+                      <button
+                        key={proof.id}
+                        onClick={() => viewProof(proof)}
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all text-sm"
+                      >
+                        <FileText size={14} />
+                        View Proof {proof.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dispute Information */}
+              {trade.dispute && (
+                <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={16} className="text-orange-400" />
+                    <span className="text-orange-300 font-semibold">Dispute Raised</span>
+                  </div>
+                  <p className="text-orange-200 text-sm">
+                    <strong>Reason:</strong> {trade.dispute.reason}
+                  </p>
+                  <p className="text-orange-200 text-sm">
+                    <strong>Status:</strong> {trade.dispute.status}
+                  </p>
+                  {trade.dispute.resolution && (
+                    <p className="text-orange-200 text-sm">
+                      <strong>Resolution:</strong> {trade.dispute.resolution}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Additional Trade Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-sm">
                 <div>
-                  <p className="text-gray-400">Time Limit</p>
-                  <p className="text-gray-100">{trade.time_limit} minutes</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Time Limit</p>
+                  <p className="text-gray-100 text-sm md:text-base">{trade.time_limit} minutes</p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Trade Type</p>
-                  <p className="text-gray-100 capitalize">{trade.type}</p>
+                  <p className="text-gray-400 text-xs md:text-sm">Trade Type</p>
+                  <p className="text-gray-100 text-sm md:text-base capitalize">{trade.type}</p>
                 </div>
               </div>
 
