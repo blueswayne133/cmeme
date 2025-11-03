@@ -6,7 +6,7 @@ import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const P2PTradePage = () => {
-  const [activeTab, setActiveTab] = useState('buy'); // Changed default to 'buy' for Buy CMEME
+  const [activeTab, setActiveTab] = useState('buy'); // 'buy' = user wants to buy CMEME, 'sell' = user wants to sell CMEME
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -70,8 +70,10 @@ const P2PTradePage = () => {
   const fetchTrades = async () => {
     try {
       setLoading(true);
+      // CORRECTED: When user wants to buy, fetch sell offers. When user wants to sell, fetch buy offers.
+      const tradeType = activeTab === 'buy' ? 'sell' : 'buy';
       const response = await api.get('/p2p/trades', {
-        params: { type: activeTab, ...filters }
+        params: { type: tradeType, ...filters }
       });
       setTrades(response.data.data.trades.data || []);
     } catch (error) {
@@ -175,7 +177,7 @@ const P2PTradePage = () => {
       {/* KYC Warning */}
       <KycWarningBanner />
 
-      {/* Tabs - CORRECTED */}
+      {/* Tabs - CORRECTED: Clear labels for user intent */}
       <div className="flex bg-gray-800 rounded-xl p-1">
         <button
           onClick={() => setActiveTab('buy')}
@@ -263,7 +265,7 @@ const P2PTradePage = () => {
                 onInitiate={() => handleInitiateTrade(trade.id)}
                 userData={userData}
                 isKycVerified={isKycVerified}
-                activeTab={activeTab} // Pass activeTab to determine button text
+                activeTab={activeTab}
               />
             ))}
           </div>
@@ -289,7 +291,7 @@ const P2PTradePage = () => {
           onDelete={handleDeleteTrade}
           userData={userData}
           isKycVerified={isKycVerified}
-          activeTab={activeTab} // Pass activeTab to determine button text
+          activeTab={activeTab}
         />
       )}
     </div>
@@ -300,12 +302,12 @@ const P2PTradePage = () => {
 const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, activeTab }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
   
-  // CORRECTED: Determine button text based on activeTab
+  // CORRECTED: Clear button text based on user action
   const getButtonText = () => {
     if (activeTab === 'buy') {
-      return 'Buy'; // User wants to buy CMEME from sellers
+      return 'Buy CMEME'; // User wants to buy CMEME from this seller
     } else {
-      return 'Sell'; // User wants to sell CMEME to buyers
+      return 'Sell CMEME'; // User wants to sell CMEME to this buyer
     }
   };
 
@@ -313,7 +315,16 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
     if (activeTab === 'buy') {
       return 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white';
     } else {
-      return 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white';
+      return 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-gray-900';
+    }
+  };
+
+  // CORRECTED: Display proper trade type information
+  const getTradeTypeInfo = () => {
+    if (activeTab === 'buy') {
+      return `${trade.seller?.username} is selling CMEME`;
+    } else {
+      return `${trade.seller?.username} is buying CMEME`;
     }
   };
 
@@ -324,7 +335,7 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
           <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-3">
             <div className="flex items-center gap-2">
               <User size={16} className="text-gray-400" />
-              <span className="text-gray-300 font-medium text-sm md:text-base">{trade.seller?.username}</span>
+              <span className="text-gray-300 font-medium text-sm md:text-base">{getTradeTypeInfo()}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Shield size={14} className="text-green-400" />
@@ -395,10 +406,10 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
   );
 };
 
-// CreateTradeModal Component
+// CreateTradeModal Component - CORRECTED with proper trade type logic
 const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   const [formData, setFormData] = useState({
-    type: 'sell',
+    type: 'sell', // 'sell' = user wants to sell CMEME, 'buy' = user wants to buy CMEME
     amount: '',
     price: '',
     payment_method: 'bank_transfer',
@@ -436,9 +447,12 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
     if (!formData.price || parseFloat(formData.price) <= 0) {
       newErrors.price = 'Please enter a valid price';
     }
-    if (!formData.terms || formData.terms.trim() === '') {
-      newErrors.terms = 'Payment details are required';
+    
+    // CORRECTED: Only require payment details for SELL orders (user selling CMEME)
+    if (formData.type === 'sell' && (!formData.terms || formData.terms.trim() === '')) {
+      newErrors.terms = 'Payment details are required for sell orders';
     }
+    
     if (formData.payment_method === 'other' && (!formData.custom_payment_method || formData.custom_payment_method.trim() === '')) {
       newErrors.custom_payment_method = 'Please specify the payment method';
     }
@@ -458,7 +472,10 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
 
     if (formData.type === 'buy') {
       const total = parseFloat(formData.amount) * parseFloat(formData.price);
-      if (total > userData?.usdc_balance) {
+      
+      // Only check USDC balance for crypto payment methods
+      const isCryptoPayment = ['usdc', 'usdt'].includes(formData.payment_method);
+      if (isCryptoPayment && total > userData?.usdc_balance) {
         setErrors({ amount: 'Insufficient USDC balance for this trade' });
         setLoading(false);
         return;
@@ -469,11 +486,12 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       const submitData = {
         ...formData,
         payment_method: formData.payment_method === 'other' ? formData.custom_payment_method : formData.payment_method,
-        payment_details: {
+        // CORRECTED: Only include payment details for sell orders
+        payment_details: formData.type === 'sell' ? {
           instructions: formData.terms,
           account_name: userData?.name || userData?.username,
           created_at: new Date().toISOString()
-        }
+        } : {}
       };
 
       await onSubmit(submitData);
@@ -496,6 +514,9 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   };
 
   const totalAmount = (parseFloat(formData.amount) || 0) * (parseFloat(formData.price) || 0);
+  
+  const isCryptoPayment = ['usdc', 'usdt'].includes(formData.payment_method);
+  const isBuyOrder = formData.type === 'buy';
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -650,25 +671,27 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
             </div>
           )}
 
-          {/* Payment Details */}
-          <div>
-            <label className="block text-gray-300 text-sm font-medium mb-2">
-              Payment Details & Instructions
-            </label>
-            <textarea
-              value={formData.terms}
-              onChange={(e) => updateFormData('terms', e.target.value)}
-              className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
-                errors.terms ? 'border-red-500' : 'border-gray-600'
-              }`}
-              placeholder="Provide your payment details (account number, wallet address, PayPal email, etc.)"
-              rows="3"
-              disabled={loading}
-            />
-            {errors.terms && (
-              <p className="text-red-400 text-xs mt-1">{errors.terms}</p>
-            )}
-          </div>
+          {/* CORRECTED: Payment Details - Only show for SELL orders (user selling CMEME) */}
+          {formData.type === 'sell' && (
+            <div>
+              <label className="block text-gray-300 text-sm font-medium mb-2">
+                Payment Details & Instructions
+              </label>
+              <textarea
+                value={formData.terms}
+                onChange={(e) => updateFormData('terms', e.target.value)}
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  errors.terms ? 'border-red-500' : 'border-gray-600'
+                }`}
+                placeholder="Provide your payment details (account number, wallet address, PayPal email, etc.)"
+                rows="3"
+                disabled={loading}
+              />
+              {errors.terms && (
+                <p className="text-red-400 text-xs mt-1">{errors.terms}</p>
+              )}
+            </div>
+          )}
 
           {/* Time Limit */}
           <div>
@@ -684,7 +707,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
             />
           </div>
 
-          {/* Balance Check */}
+          {/* CORRECTED: Balance Check Messages */}
           {formData.type === 'sell' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
@@ -696,7 +719,10 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
           {formData.type === 'buy' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-blue-400 text-sm">
-                ℹ️ ${totalAmount.toFixed(2)} USDC will be locked for this trade until completion
+                {isCryptoPayment 
+                  ? `ℹ️ $${totalAmount.toFixed(2)} USDC will be locked for this trade until completion`
+                  : `ℹ️ This is a buy order. You'll need to make payment to the seller's provided payment method.`
+                }
               </p>
             </div>
           )}
@@ -809,7 +835,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
     }
   };
 
-  // CORRECTED: Get button text based on activeTab
+  // CORRECTED: Get proper button text based on user action
   const getInitiateButtonText = () => {
     if (activeTab === 'buy') {
       return 'Start Trade - Buy CMEME';
@@ -821,6 +847,11 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
   // Get payment details
   const paymentDetails = trade.payment_details || {};
   const bankDetails = paymentDetails.instructions || trade.terms || 'No payment details provided';
+
+  // CORRECTED: Determine the trade type for display
+  const getTradeTypeDisplay = () => {
+    return trade.type === 'sell' ? 'Selling CMEME' : 'Buying CMEME';
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
@@ -839,6 +870,13 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
           {/* Trade Information */}
           <div className="flex-1 p-4 md:p-6 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-700">
             <div className="space-y-4">
+              {/* Trade Type Badge */}
+              <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-3">
+                <p className="text-yellow-300 font-semibold text-center">
+                  {getTradeTypeDisplay()}
+                </p>
+              </div>
+
               {/* KYC Status */}
               {!isKycVerified && !isOwnTrade && (
                 <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
@@ -897,7 +935,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
                 </div>
               </div>
 
-              {/* Payment Details */}
+              {/* Payment Details - Only show for sell trades */}
               {trade.type === 'sell' && (
                 <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
@@ -918,7 +956,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
                 </div>
               )}
 
-              {/* Seller Info */}
+              {/* Seller/Buyer Info */}
               <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-100 mb-3">
                   {trade.type === 'sell' ? 'Seller Information' : 'Buyer Information'}
