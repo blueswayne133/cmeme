@@ -66,6 +66,17 @@ const P2PTradePage = () => {
       return;
     }
 
+    // Check balance for sell tab (where user is responding to someone's BUY order)
+    if (activeTab === 'sell') {
+      // When user is on sell tab, they are responding to someone's BUY order
+      // So they need CMEME tokens to sell
+      const trade = trades.find(t => t.id === tradeId);
+      if (trade && userData?.token_balance < trade.amount) {
+        toast.error(`Insufficient CMEME balance. You need ${trade.amount} CMEME to complete this trade.`);
+        return;
+      }
+    }
+
     try {
       await api.post(`/p2p/trades/${tradeId}/initiate`);
       setTradeDetailModal(null);
@@ -276,6 +287,23 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
     }
   };
 
+  const getBalanceWarning = () => {
+    if (activeTab === 'sell' && !isOwnTrade) {
+      // When user is on sell tab and viewing someone else's BUY order
+      // They need CMEME tokens to sell
+      if (userData?.token_balance < trade.amount) {
+        return (
+          <div className="mt-2 bg-red-500/20 border border-red-500/30 rounded-lg p-2">
+            <p className="text-red-300 text-xs">
+              Insufficient balance: You need {trade.amount} CMEME
+            </p>
+          </div>
+        );
+      }
+    }
+    return null;
+  };
+
   return (
     <div className="p-4 md:p-6 hover:bg-gray-800/30 transition-colors">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -313,6 +341,8 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
               <p className="text-gray-100 font-semibold text-sm md:text-base">{trade.payment_method}</p>
             </div>
           </div>
+
+          {getBalanceWarning()}
         </div>
 
         <div className="flex flex-col gap-2 mt-4 lg:mt-0">
@@ -395,6 +425,11 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       newErrors.terms = 'Payment instructions are required';
     }
 
+    // Check balance for sell orders
+    if (formData.type === 'sell' && userData?.token_balance < parseFloat(formData.amount)) {
+      newErrors.amount = `Insufficient CMEME balance. You have ${userData?.token_balance || 0} CMEME but need ${formData.amount} CMEME.`;
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setLoading(false);
@@ -422,6 +457,28 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   };
 
   const totalAmount = (parseFloat(formData.amount) || 0) * (parseFloat(formData.price) || 0);
+
+  const getBalanceWarning = () => {
+    if (formData.type === 'sell' && formData.amount) {
+      const amountNeeded = parseFloat(formData.amount);
+      const userBalance = userData?.token_balance || 0;
+      
+      if (userBalance < amountNeeded) {
+        return (
+          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-3">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle size={16} />
+              <span className="text-sm font-medium">Insufficient Balance</span>
+            </div>
+            <p className="text-red-300 text-sm mt-1">
+              You need {amountNeeded} CMEME but only have {userBalance} CMEME.
+            </p>
+          </div>
+        );
+      }
+    }
+    return null;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -471,10 +528,15 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
                   <span className="text-sm font-medium text-gray-200 text-center">
                     {type === 'sell' ? 'Sell CMEME' : 'Buy CMEME'}
                   </span>
+                  <span className="text-xs text-gray-400 mt-1">
+                    {type === 'sell' ? 'You send CMEME' : 'You receive CMEME'}
+                  </span>
                 </label>
               ))}
             </div>
           </div>
+
+          {getBalanceWarning()}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -526,6 +588,14 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
                 ${totalAmount.toFixed(2)} USD
               </span>
             </div>
+            {formData.type === 'sell' && (
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-gray-400">Your CMEME Balance:</span>
+                <span className="text-gray-100 font-semibold">
+                  {userData?.token_balance || 0} CMEME
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -609,6 +679,34 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
     return trade.type === 'sell' ? 'Selling CMEME' : 'Buying CMEME';
   };
 
+  const getBalanceWarning = () => {
+    if (activeTab === 'sell' && !isOwnTrade) {
+      // When user is on sell tab and viewing someone else's BUY order
+      // They need CMEME tokens to sell
+      if (userData?.token_balance < trade.amount) {
+        return (
+          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle size={16} />
+              <span className="font-medium">Insufficient CMEME Balance</span>
+            </div>
+            <p className="text-red-300 text-sm mt-1">
+              You need {trade.amount} CMEME to complete this trade, but you only have {userData?.token_balance || 0} CMEME.
+            </p>
+          </div>
+        );
+      }
+    }
+    return null;
+  };
+
+  const canInitiateTrade = () => {
+    if (activeTab === 'sell' && !isOwnTrade) {
+      return userData?.token_balance >= trade.amount;
+    }
+    return true;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
       <div className="bg-gray-800 rounded-2xl max-w-4xl w-full border border-gray-700 shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
@@ -630,6 +728,8 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               </p>
             </div>
 
+            {getBalanceWarning()}
+
             {!isKycVerified && !isOwnTrade && (
               <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-yellow-300">
@@ -646,22 +746,49 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                 <h4 className="text-blue-300 font-semibold mb-3">How This Trade Works</h4>
                 <div className="space-y-2 text-blue-200 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
-                    <span>Click "Start Trade" to begin</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
-                    <span>View seller's bank details and make payment</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
-                    <span>Upload payment proof in Active Trades</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
-                    <span>Seller confirms receipt and releases tokens</span>
-                  </div>
+                  {activeTab === 'buy' ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
+                        <span>Click "Start Trade" to begin</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
+                        <span>View seller's bank details and make payment</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
+                        <span>Upload payment proof in Active Trades</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
+                        <span>Seller confirms receipt and releases CMEME tokens</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">1</div>
+                        <span>Click "Start Trade" to begin</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">2</div>
+                        <span>Your CMEME tokens will be locked for this trade</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">3</div>
+                        <span>Buyer makes payment to your bank account</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">4</div>
+                        <span>Buyer uploads payment proof</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">5</div>
+                        <span>Confirm payment received to release CMEME tokens</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -685,7 +812,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
               </div>
             </div>
 
-            {trade.type === 'sell' && (
+            {(trade.type === 'sell' || isOwnTrade) && (
               <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-100 mb-3">Payment Details</h3>
                 <div className="space-y-3">
@@ -727,7 +854,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
 
             <div className="flex flex-col sm:flex-row gap-3">
               {!isOwnTrade && trade.status === 'active' && (
-                isKycVerified ? (
+                isKycVerified && canInitiateTrade() ? (
                   <button
                     onClick={() => onInitiate(trade.id)}
                     className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
@@ -739,8 +866,14 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
                     disabled
                     className="flex-1 py-3 bg-gray-600 text-gray-400 font-semibold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    <Lock size={16} />
-                    Verify KYC
+                    {!isKycVerified ? (
+                      <>
+                        <Lock size={16} />
+                        Verify KYC
+                      </>
+                    ) : (
+                      "Cannot Initiate Trade"
+                    )}
                   </button>
                 )
               )}

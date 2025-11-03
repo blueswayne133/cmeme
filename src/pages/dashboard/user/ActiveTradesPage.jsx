@@ -51,7 +51,7 @@ const ActiveTradesPage = () => {
     try {
       await api.post(`/p2p/trades/${tradeId}/mark-payment-sent`);
       fetchUserTrades();
-      toast.success('Payment marked as sent! Seller has been notified.');
+      toast.success('Payment marked as sent! Counterparty has been notified.');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to mark payment as sent';
       toast.error(errorMessage);
@@ -62,7 +62,7 @@ const ActiveTradesPage = () => {
     try {
       await api.post(`/p2p/trades/${tradeId}/confirm-payment`);
       fetchUserTrades();
-      toast.success('Payment confirmed! Tokens released to buyer.');
+      toast.success('Payment confirmed! Tokens released.');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to confirm payment';
       toast.error(errorMessage);
@@ -73,7 +73,7 @@ const ActiveTradesPage = () => {
     try {
       await api.post(`/p2p/trades/${tradeId}/reject-payment`, { reason });
       fetchUserTrades();
-      toast.success('Payment rejected. Buyer has been notified.');
+      toast.success('Payment rejected. Counterparty has been notified.');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to reject payment';
       toast.error(errorMessage);
@@ -251,6 +251,51 @@ const ActiveTradeCard = ({
     (isBuyer && trade.status === 'processing') || 
     (isSeller && trade.status === 'processing' && !trade.buyer_id);
 
+  // CORRECTED: Get trade type specific information
+  const isSellOrder = trade.type === 'sell';
+  const tradeTypeLabel = isSellOrder ? 'Sell Order' : 'Buy Order';
+
+  // CORRECTED: Determine who should upload proof and mark payment as sent
+  const shouldUploadProof = () => {
+    if (isSellOrder) {
+      // SELL ORDER: Buyer pays USD, so buyer uploads proof
+      return isBuyer && !hasProofs && !paymentMarkedAsSent;
+    } else {
+      // BUY ORDER: Seller pays USD, so seller uploads proof  
+      return isSeller && !hasProofs && !paymentMarkedAsSent;
+    }
+  };
+
+  const shouldMarkAsPaid = () => {
+    if (isSellOrder) {
+      // SELL ORDER: Buyer marks payment as sent after uploading proof
+      return isBuyer && hasProofs && !paymentMarkedAsSent;
+    } else {
+      // BUY ORDER: Seller marks payment as sent after uploading proof
+      return isSeller && hasProofs && !paymentMarkedAsSent;
+    }
+  };
+
+  const shouldConfirmPayment = () => {
+    if (isSellOrder) {
+      // SELL ORDER: Seller confirms they received USD
+      return isSeller && paymentMarkedAsSent && !trade.completed_at;
+    } else {
+      // BUY ORDER: Buyer confirms they received USD
+      return isBuyer && paymentMarkedAsSent && !trade.completed_at;
+    }
+  };
+
+  const shouldSeeBankDetails = () => {
+    if (isSellOrder) {
+      // SELL ORDER: Buyer needs to see seller's bank details to pay
+      return isBuyer && !paymentMarkedAsSent;
+    } else {
+      // BUY ORDER: Seller needs to see buyer's bank details to pay
+      return isSeller && !paymentMarkedAsSent;
+    }
+  };
+
   return (
     <div className={`bg-gray-800/50 rounded-2xl p-4 md:p-6 border transition-all ${
       isExpired ? 'border-red-500/50' : 'border-gray-700/50'
@@ -276,7 +321,7 @@ const ActiveTradeCard = ({
               ? 'bg-blue-500/20 text-blue-400'
               : 'bg-gray-500/20 text-gray-400'
           }`}>
-            {trade.paid_at 
+            {tradeTypeLabel} • {trade.paid_at 
               ? paymentMarkedAsSent && !trade.completed_at
                 ? 'Payment Sent - Awaiting Confirmation'
                 : 'Payment Confirmed'
@@ -288,61 +333,63 @@ const ActiveTradeCard = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {isBuyer && !trade.paid_at && (
-            <>
-              <button
-                onClick={() => setShowBankDetails(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
-              >
-                <Eye size={14} />
-                Bank Details
-              </button>
-              
-              {!hasProofs && (
-                <button
-                  onClick={() => setShowUpload(true)}
-                  className="px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
-                >
-                  <Upload size={14} />
-                  Upload Proof
-                </button>
-              )}
-              
-              {hasProofs && !trade.paid_at && (
-                <button
-                  onClick={() => onMarkAsPaid(trade.id)}
-                  className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
-                >
-                  <Send size={14} />
-                  Payment Sent
-                </button>
-              )}
-            </>
+          {/* BANK DETAILS BUTTON - CORRECTED LOGIC */}
+          {shouldSeeBankDetails() && (
+            <button
+              onClick={() => setShowBankDetails(true)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <Eye size={14} />
+              Bank Details
+            </button>
+          )}
+          
+          {/* UPLOAD PROOF BUTTON - CORRECTED LOGIC */}
+          {shouldUploadProof() && (
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <Upload size={14} />
+              Upload Proof
+            </button>
+          )}
+          
+          {/* MARK PAYMENT AS SENT BUTTON - CORRECTED LOGIC */}
+          {shouldMarkAsPaid() && (
+            <button
+              onClick={() => onMarkAsPaid(trade.id)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <Send size={14} />
+              Payment Sent
+            </button>
           )}
 
-          {/* SELLER ACTIONS - Only show if payment is marked as sent but not confirmed */}
-          {isSeller && hasProofs && paymentMarkedAsSent && !trade.completed_at && (
-            <>
-              <button
-                onClick={() => onConfirmPayment(trade.id)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
-              >
-                <Check size={14} />
-                Confirm Payment
-              </button>
-              
-              <button
-                onClick={() => setShowReject(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
-              >
-                <X size={14} />
-                Reject Payment
-              </button>
-            </>
+          {/* CONFIRM PAYMENT BUTTON - CORRECTED LOGIC */}
+          {shouldConfirmPayment() && (
+            <button
+              onClick={() => onConfirmPayment(trade.id)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <Check size={14} />
+              Confirm Payment
+            </button>
+          )}
+          
+          {/* REJECT PAYMENT BUTTON - CORRECTED LOGIC */}
+          {shouldConfirmPayment() && (
+            <button
+              onClick={() => setShowReject(true)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <X size={14} />
+              Reject Payment
+            </button>
           )}
 
-          {/* BUYER CAN FILE DISPUTE IF PAYMENT IS REJECTED OR NOT CONFIRMED AFTER MARKING AS SENT */}
-          {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
+          {/* FILE DISPUTE BUTTON */}
+          {(paymentMarkedAsSent && !trade.completed_at) && (
             <button
               onClick={() => setShowDispute(true)}
               className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
@@ -352,7 +399,7 @@ const ActiveTradeCard = ({
             </button>
           )}
 
-          {/* CANCEL TRADE BUTTON - Only show for seller when active, or buyer when processing */}
+          {/* CANCEL TRADE BUTTON */}
           {showCancelButton && (
             <button
               onClick={() => setShowCancel(true)}
@@ -365,117 +412,178 @@ const ActiveTradeCard = ({
         </div>
       </div>
 
-      {/* Trade Status Information */}
+      {/* Trade Status Information - CORRECTED LOGIC */}
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 md:p-4 mb-4">
         <div className="flex items-start gap-3">
           <AlertTriangle size={18} className="text-blue-400 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <h4 className="text-blue-300 font-semibold mb-2 text-sm md:text-base">Trade Instructions</h4>
-            {isBuyer && !hasProofs && (
-              <div className="text-blue-200 text-xs md:text-sm space-y-1">
-                <p>1. Click "Bank Details" to see seller's payment information</p>
-                <p>2. Make payment to the provided account</p>
-                <p>3. Click "Upload Proof" and upload your payment receipt</p>
-                <p>4. Click "Payment Sent" to notify the seller</p>
-                <p>5. Wait for seller to confirm payment and release tokens</p>
-              </div>
+            <h4 className="text-blue-300 font-semibold mb-2 text-sm md:text-base">
+              Trade Instructions - {tradeTypeLabel}
+            </h4>
+            
+            {isSellOrder ? (
+              // SELL ORDER FLOW
+              <>
+                {isBuyer && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are BUYING {trade.amount} CMEME from {trade.seller?.username}</p>
+                    <p>1. Click "Bank Details" to see seller's payment information</p>
+                    <p>2. Make payment of ${trade.total} to the provided account</p>
+                    <p>3. Upload payment proof</p>
+                    <p>4. Click "Payment Sent" to notify the seller</p>
+                    <p>5. Wait for seller to confirm and release CMEME tokens to you</p>
+                  </div>
+                )}
+                {isBuyer && hasProofs && !paymentMarkedAsSent && (
+                  <div className="text-yellow-200 text-xs md:text-sm space-y-1">
+                    <p>✅ Payment proof uploaded!</p>
+                    <p>📤 Click "Payment Sent" to notify seller you've paid</p>
+                  </div>
+                )}
+                {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>✅ Payment marked as sent!</p>
+                    <p>⏳ Waiting for {trade.seller?.username} to confirm receipt</p>
+                    <p>🚀 You will receive {trade.amount} CMEME once confirmed</p>
+                  </div>
+                )}
+                {isSeller && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.buyer?.username}</p>
+                    <p>⏳ Waiting for buyer to make payment and upload proof</p>
+                  </div>
+                )}
+                {isSeller && hasProofs && !paymentMarkedAsSent && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>📥 Buyer uploaded payment proof</p>
+                    <p>⏳ Waiting for buyer to mark payment as sent</p>
+                  </div>
+                )}
+                {isSeller && paymentMarkedAsSent && !trade.completed_at && (
+                  <div className="text-green-200 text-xs md:text-sm space-y-1">
+                    <p>💰 Buyer marked payment as sent!</p>
+                    <p>✅ Check your bank account for ${trade.total}</p>
+                    <p>✅ Click "Confirm Payment" to release {trade.amount} CMEME to buyer</p>
+                    <p>❌ Click "Reject Payment" if payment not received</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              // BUY ORDER FLOW
+              <>
+                {isSeller && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are BUYING {trade.amount} CMEME from {trade.buyer?.username}</p>
+                    <p>1. Click "Bank Details" to see buyer's payment information</p>
+                    <p>2. Make payment of ${trade.total} to the provided account</p>
+                    <p>3. Upload payment proof</p>
+                    <p>4. Click "Payment Sent" to notify the buyer</p>
+                    <p>5. Wait for buyer to confirm and receive CMEME tokens</p>
+                  </div>
+                )}
+                {isSeller && hasProofs && !paymentMarkedAsSent && (
+                  <div className="text-yellow-200 text-xs md:text-sm space-y-1">
+                    <p>✅ Payment proof uploaded!</p>
+                    <p>📤 Click "Payment Sent" to notify buyer you've paid</p>
+                  </div>
+                )}
+                {isSeller && paymentMarkedAsSent && !trade.completed_at && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>✅ Payment marked as sent!</p>
+                    <p>⏳ Waiting for {trade.buyer?.username} to confirm receipt</p>
+                    <p>🚀 You will receive {trade.amount} CMEME once confirmed</p>
+                  </div>
+                )}
+                {isBuyer && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.seller?.username}</p>
+                    <p>⏳ Waiting for seller to make payment and upload proof</p>
+                  </div>
+                )}
+                {isBuyer && hasProofs && !paymentMarkedAsSent && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>📥 Seller uploaded payment proof</p>
+                    <p>⏳ Waiting for seller to mark payment as sent</p>
+                  </div>
+                )}
+                {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
+                  <div className="text-green-200 text-xs md:text-sm space-y-1">
+                    <p>💰 Seller marked payment as sent!</p>
+                    <p>✅ Check your bank account for ${trade.total}</p>
+                    <p>✅ Click "Confirm Payment" to release {trade.amount} CMEME to seller</p>
+                    <p>❌ Click "Reject Payment" if payment not received</p>
+                  </div>
+                )}
+              </>
             )}
-            {isBuyer && hasProofs && !trade.paid_at && (
-              <div className="text-yellow-200 text-xs md:text-sm space-y-1">
-                <p>✅ Payment proof uploaded successfully!</p>
-                <p>📤 Click "Payment Sent" to notify the seller about your payment</p>
-                <p>⏳ Seller will review your payment proof and confirm receipt</p>
-              </div>
-            )}
-            {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
-              <div className="text-blue-200 text-xs md:text-sm space-y-1">
-                <p>✅ Payment proof uploaded and marked as sent!</p>
-                <p>⏳ Waiting for seller to confirm they received the payment</p>
-                <p>📞 Seller has been notified and will verify the payment</p>
-                <p>⚠️ If seller doesn't respond, you can file a dispute</p>
-              </div>
-            )}
-            {isBuyer && trade.completed_at && (
+
+            {/* COMPLETED TRADE */}
+            {trade.completed_at && (
               <div className="text-green-200 text-xs md:text-sm">
-                <p>✅ Payment confirmed! Tokens have been released to your account.</p>
-              </div>
-            )}
-            {isSeller && hasProofs && !paymentMarkedAsSent && (
-              <div className="text-blue-200 text-xs md:text-sm space-y-1">
-                <p>📥 Buyer has uploaded payment proof</p>
-                <p>⏳ Waiting for buyer to mark payment as sent</p>
-                <p>💰 Once buyer clicks "Payment Sent", you can verify and confirm</p>
-              </div>
-            )}
-            {isSeller && paymentMarkedAsSent && !trade.completed_at && (
-              <div className="text-green-200 text-xs md:text-sm space-y-1">
-                <p>📥 Buyer has marked payment as sent!</p>
-                <p>💰 Check your bank account to confirm receipt of payment</p>
-                <p>✅ Click "Confirm Payment" if you received the money</p>
-                <p>❌ Click "Reject Payment" if you didn't receive the money</p>
-                <p>🚀 Tokens will be automatically released to buyer when you confirm</p>
-              </div>
-            )}
-            {isSeller && !hasProofs && (
-              <div className="text-yellow-200 text-xs md:text-sm">
-                <p>⏳ Waiting for buyer to make payment and upload proof.</p>
+                <p>✅ Trade completed! {isSellOrder 
+                  ? (isSeller ? 'You sold CMEME and received USD' : 'You bought CMEME successfully')
+                  : (isSeller ? 'You bought CMEME successfully' : 'You sold CMEME and received USD')
+                }</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* PAYMENT PROOF DISPLAY - Show for both parties when proof is uploaded */}
+      {/* PAYMENT PROOF DISPLAY */}
       {hasProofs && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 md:p-4 mb-4">
           <div className="flex items-start gap-3">
             <FileText size={18} className="text-green-400 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <h5 className="text-green-300 font-semibold text-sm md:text-base mb-2">
-                Payment Proof {isSeller ? "Uploaded by Buyer" : "Uploaded by You"}
+                Payment Proof {isSellOrder 
+                  ? (isBuyer ? "Uploaded by You" : "Uploaded by Buyer")
+                  : (isSeller ? "Uploaded by You" : "Uploaded by Seller")
+                }
               </h5>
               <p className="text-green-200 text-xs md:text-sm mb-3">
                 {latestProof?.description || 'Payment receipt uploaded'} • {new Date(latestProof?.created_at).toLocaleString()}
               </p>
               
               {/* DISPLAY THE PROOF IMAGE */}
-{latestProof?.file_path && (
-  <div className="mt-3">
-    <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
-    <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-      <img 
-        src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
-        alt="Payment proof" 
-        className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
-        onError={(e) => {
-          e.target.style.display = 'none';
-          const fallback = e.target.nextElementSibling;
-          if (fallback) fallback.style.display = 'block';
-        }}
-        onLoad={(e) => {
-          const fallback = e.target.nextElementSibling;
-          if (fallback) fallback.style.display = 'none';
-        }}
-      />
-      <div style={{display: 'none'}} className="text-center text-gray-400 py-4">
-        <FileText size={32} className="mx-auto mb-2" />
-        <p>Proof image cannot be displayed</p>
-        <button
-          onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
-          className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
-        >
-          <Eye size={14} />
-          View Proof in New Tab
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              {latestProof?.file_path && (
+                <div className="mt-3">
+                  <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
+                  <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
+                      alt="Payment proof" 
+                      className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.nextElementSibling;
+                        if (fallback) fallback.style.display = 'block';
+                      }}
+                      onLoad={(e) => {
+                        const fallback = e.target.nextElementSibling;
+                        if (fallback) fallback.style.display = 'none';
+                      }}
+                    />
+                    <div style={{display: 'none'}} className="text-center text-gray-400 py-4">
+                      <FileText size={32} className="mx-auto mb-2" />
+                      <p>Proof image cannot be displayed</p>
+                      <button
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
+                        className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
+                      >
+                        <Eye size={14} />
+                        View Proof in New Tab
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
-              {isSeller && paymentMarkedAsSent && (
+              {((isSeller && isSellOrder && paymentMarkedAsSent) || (isBuyer && !isSellOrder && paymentMarkedAsSent)) && (
                 <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <p className="text-yellow-200 text-sm">
-                    <strong>Seller Action Required:</strong> Buyer has marked payment as sent. Please verify this payment proof matches the actual payment received in your account.
+                    <strong>Action Required:</strong> Counterparty has marked payment as sent. Please verify this payment proof matches the actual payment received in your account.
                   </p>
                 </div>
               )}
@@ -531,12 +639,16 @@ const ActiveTradeCard = ({
             <div className="p-4 md:p-6 border-b border-gray-700">
               <h3 className="text-lg font-bold text-gray-100">Payment Instructions</h3>
               <p className="text-gray-400 text-sm mt-1">
-                Send payment to the following account details:
+                {isSellOrder 
+                  ? "Send payment to the following account details:"
+                  : "Receive payment to the following account details:"}
               </p>
             </div>
             <div className="p-4 md:p-6 space-y-4">
               <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
-                <h4 className="text-gray-300 font-semibold mb-3">Seller's Payment Details</h4>
+                <h4 className="text-gray-300 font-semibold mb-3">
+                  {isSellOrder ? "Seller's Payment Details" : "Your Payment Details"}
+                </h4>
                 <div className="space-y-3">
                   <div>
                     <span className="text-gray-400 text-sm">Payment Method:</span>
@@ -559,7 +671,7 @@ const ActiveTradeCard = ({
                   <div>
                     <h5 className="text-yellow-300 font-semibold">Important</h5>
                     <ul className="text-yellow-200 text-sm mt-1 space-y-1">
-                      <li>• Make payment only to the account details shown above</li>
+                      <li>• {isSellOrder ? "Make payment only to the account details shown above" : "Share these account details with the counterparty"}</li>
                       <li>• Keep your payment receipt safe</li>
                       <li>• Upload payment proof immediately after payment</li>
                       <li>• Click "Payment Sent" after uploading proof</li>
@@ -576,15 +688,27 @@ const ActiveTradeCard = ({
                 >
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    setShowBankDetails(false);
-                    setShowUpload(true);
-                  }}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all"
-                >
-                  I've Made Payment
-                </button>
+                {isSellOrder ? (
+                  <button
+                    onClick={() => {
+                      setShowBankDetails(false);
+                      setShowUpload(true);
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all"
+                  >
+                    I've Made Payment
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowBankDetails(false);
+                      setShowUpload(true);
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all"
+                  >
+                    I've Received Payment
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -596,10 +720,16 @@ const ActiveTradeCard = ({
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
           <div className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl">
             <div className="p-4 md:p-6 border-b border-gray-700">
-              <h3 className="text-lg font-bold text-gray-100">Upload Payment Proof</h3>
+              <h3 className="text-lg font-bold text-gray-100">
+                {isSellOrder ? "Upload Payment Proof" : "Upload Receipt Proof"}
+              </h3>
             </div>
             <div className="p-4 md:p-6 space-y-4">
-              <p className="text-gray-300">Please upload proof of payment for this trade.</p>
+              <p className="text-gray-300">
+                {isSellOrder 
+                  ? "Please upload proof of payment for this trade."
+                  : "Please upload proof that you received payment for this trade."}
+              </p>
               <p className="text-gray-400 text-sm">
                 Upload a screenshot or photo of your payment receipt/confirmation (JPEG, PNG, GIF, max 5MB).
               </p>
@@ -680,7 +810,7 @@ const ActiveTradeCard = ({
               <textarea
                 value={disputeReason}
                 onChange={(e) => setDisputeReason(e.target.value)}
-                placeholder="Enter dispute details (e.g., seller not releasing tokens, payment issues, etc.)..."
+                placeholder="Enter dispute details (e.g., counterparty not releasing tokens, payment issues, etc.)..."
                 className="w-full h-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400 resize-none"
               />
               <div className="flex flex-col sm:flex-row gap-3">
