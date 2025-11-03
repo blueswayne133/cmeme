@@ -117,13 +117,13 @@ const ActiveTradesPage = () => {
     }
   };
 
-  // Auto-refresh trades every 30 seconds
+  // Auto-refresh trades every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       if (trades.length > 0) {
         fetchUserTrades();
       }
-    }, 30000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, [trades.length]);
@@ -142,7 +142,7 @@ const ActiveTradesPage = () => {
         <h2 className="text-2xl font-bold text-gray-100">Active Trades</h2>
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <Clock size={16} />
-          <span>Auto-refreshing every 30 seconds</span>
+          <span>Auto-refreshing every 5 minutes</span>
         </div>
       </div>
 

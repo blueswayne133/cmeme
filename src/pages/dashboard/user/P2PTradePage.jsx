@@ -6,7 +6,7 @@ import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const P2PTradePage = () => {
-  const [activeTab, setActiveTab] = useState('sell');
+  const [activeTab, setActiveTab] = useState('buy'); // Changed default to 'buy' for Buy CMEME
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -175,12 +175,12 @@ const P2PTradePage = () => {
       {/* KYC Warning */}
       <KycWarningBanner />
 
-      {/* Tabs */}
+      {/* Tabs - CORRECTED */}
       <div className="flex bg-gray-800 rounded-xl p-1">
         <button
-          onClick={() => setActiveTab('sell')}
+          onClick={() => setActiveTab('buy')}
           className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-            activeTab === 'sell'
+            activeTab === 'buy'
               ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900"
               : "text-gray-400 hover:text-gray-200"
           }`}
@@ -188,9 +188,9 @@ const P2PTradePage = () => {
           Buy CMEME
         </button>
         <button
-          onClick={() => setActiveTab('buy')}
+          onClick={() => setActiveTab('sell')}
           className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-            activeTab === 'buy'
+            activeTab === 'sell'
               ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900"
               : "text-gray-400 hover:text-gray-200"
           }`}
@@ -263,6 +263,7 @@ const P2PTradePage = () => {
                 onInitiate={() => handleInitiateTrade(trade.id)}
                 userData={userData}
                 isKycVerified={isKycVerified}
+                activeTab={activeTab} // Pass activeTab to determine button text
               />
             ))}
           </div>
@@ -288,15 +289,33 @@ const P2PTradePage = () => {
           onDelete={handleDeleteTrade}
           userData={userData}
           isKycVerified={isKycVerified}
+          activeTab={activeTab} // Pass activeTab to determine button text
         />
       )}
     </div>
   );
 };
 
-// TradeCard Component
-const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }) => {
+// TradeCard Component - CORRECTED
+const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, activeTab }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
+  
+  // CORRECTED: Determine button text based on activeTab
+  const getButtonText = () => {
+    if (activeTab === 'buy') {
+      return 'Buy'; // User wants to buy CMEME from sellers
+    } else {
+      return 'Sell'; // User wants to sell CMEME to buyers
+    }
+  };
+
+  const getButtonColor = () => {
+    if (activeTab === 'buy') {
+      return 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white';
+    } else {
+      return 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white';
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 hover:bg-gray-800/30 transition-colors">
@@ -342,9 +361,9 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified }
             isKycVerified ? (
               <button
                 onClick={onInitiate}
-                className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all text-sm md:text-base"
+                className={`px-4 md:px-6 py-2 md:py-3 font-semibold rounded-xl transition-all text-sm md:text-base ${getButtonColor()}`}
               >
-                Trade
+                {getButtonText()}
               </button>
             ) : (
               <button
@@ -700,8 +719,8 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
   );
 };
 
-// TradeDetailModal Component with Real-time Chat
-const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified }) => {
+// TradeDetailModal Component with Real-time Chat - CORRECTED
+const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified, activeTab }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -787,6 +806,15 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
       // Error handled in parent
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // CORRECTED: Get button text based on activeTab
+  const getInitiateButtonText = () => {
+    if (activeTab === 'buy') {
+      return 'Start Trade - Buy CMEME';
+    } else {
+      return 'Start Trade - Sell CMEME';
     }
   };
 
@@ -933,7 +961,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
                       onClick={() => onInitiate(trade.id)}
                       className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all"
                     >
-                      Start Trade
+                      {getInitiateButtonText()}
                     </button>
                   ) : (
                     <button
