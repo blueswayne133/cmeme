@@ -2,49 +2,49 @@ import { useState, useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Clock, User, DollarSign, Coins, Upload, Check, X, AlertTriangle, Eye, Shield, Send, MessageCircle, FileText } from "lucide-react";
 import api from "../../../utils/api";
-import getEchoInstance from "../../../utils/echo";
+// import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const ActiveTradesPage = () => {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const { userData } = useOutletContext();
-  const echoRef = useRef(null);
+  // const echoRef = useRef(null);
 
   useEffect(() => {
     fetchUserTrades();
-    setupWebSockets();
+    // setupWebSockets();
     
     return () => {
-      if (echoRef.current) {
-        echoRef.current.disconnect();
-      }
+      // if (echoRef.current) {
+      //   echoRef.current.disconnect();
+      // }
     };
   }, []);
 
-  const setupWebSockets = () => {
-    if (echoRef.current) {
-      echoRef.current.disconnect();
-    }
+  // const setupWebSockets = () => {
+  //   if (echoRef.current) {
+  //     echoRef.current.disconnect();
+  //   }
 
-    echoRef.current = getEchoInstance();
+  //   echoRef.current = getEchoInstance();
 
-    // Listen for connection events
-    echoRef.current.connector.pusher.connection.bind('connected', () => {
-      console.log('✅ Pusher connected successfully for active trades');
-    });
+  //   // Listen for connection events
+  //   echoRef.current.connector.pusher.connection.bind('connected', () => {
+  //     console.log('✅ Pusher connected successfully for active trades');
+  //   });
 
-    // Listen for trade updates
-    echoRef.current.channel('p2p-trades')
-      .listen('.P2PTradeUpdated', (e) => {
-        console.log('Active trade updated:', e.trade);
-        setTrades(prevTrades => 
-          prevTrades.map(trade => 
-            trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
-          ).filter(trade => trade.status === 'processing')
-        );
-      });
-  };
+  //   // Listen for trade updates
+  //   echoRef.current.channel('p2p-trades')
+  //     .listen('.P2PTradeUpdated', (e) => {
+  //       console.log('Active trade updated:', e.trade);
+  //       setTrades(prevTrades => 
+  //         prevTrades.map(trade => 
+  //           trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
+  //         ).filter(trade => trade.status === 'processing')
+  //       );
+  //     });
+  // };
 
   const fetchUserTrades = async () => {
     try {
