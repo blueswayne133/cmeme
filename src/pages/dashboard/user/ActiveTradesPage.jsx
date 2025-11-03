@@ -439,33 +439,38 @@ const ActiveTradeCard = ({
               </p>
               
               {/* DISPLAY THE PROOF IMAGE */}
-              {latestProof?.file_path && (
-                <div className="mt-3">
-                  <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
-                  <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-                    <img 
-                      src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
-                      alt="Payment proof" 
-                      className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                    <div style={{display: 'none'}} className="text-center text-gray-400 py-4">
-                      <FileText size={32} className="mx-auto mb-2" />
-                      <p>Proof image cannot be displayed</p>
-                      <button
-                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
-                        className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
-                      >
-                        <Eye size={14} />
-                        View Proof in New Tab
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+{latestProof?.file_path && (
+  <div className="mt-3">
+    <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
+    <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+      <img 
+        src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
+        alt="Payment proof" 
+        className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
+        onError={(e) => {
+          e.target.style.display = 'none';
+          const fallback = e.target.nextElementSibling;
+          if (fallback) fallback.style.display = 'block';
+        }}
+        onLoad={(e) => {
+          const fallback = e.target.nextElementSibling;
+          if (fallback) fallback.style.display = 'none';
+        }}
+      />
+      <div style={{display: 'none'}} className="text-center text-gray-400 py-4">
+        <FileText size={32} className="mx-auto mb-2" />
+        <p>Proof image cannot be displayed</p>
+        <button
+          onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
+          className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
+        >
+          <Eye size={14} />
+          View Proof in New Tab
+        </button>
+      </div>
+    </div>
+  </div>
+)}
               
               {isSeller && paymentMarkedAsSent && (
                 <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
