@@ -117,16 +117,16 @@ const ActiveTradesPage = () => {
     }
   };
 
-  // Auto-refresh trades every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (trades.length > 0) {
-        fetchUserTrades();
-      }
-    }, 300000);
+  // Auto-refresh trades every 5 minutes - COMMENTED OUT
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (trades.length > 0) {
+  //       fetchUserTrades();
+  //     }
+  //   }, 300000);
 
-    return () => clearInterval(interval);
-  }, [trades.length]);
+  //   return () => clearInterval(interval);
+  // }, [trades.length]);
 
   if (loading) {
     return (
@@ -140,10 +140,10 @@ const ActiveTradesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-100">Active Trades</h2>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        {/* <div className="flex items-center gap-2 text-sm text-gray-400">
           <Clock size={16} />
           <span>Auto-refreshing every 5 minutes</span>
-        </div>
+        </div> */}
       </div>
 
       {trades.length === 0 ? (
@@ -163,7 +163,7 @@ const ActiveTradesPage = () => {
               onMarkAsPaid={handleMarkAsPaid}
               onConfirmPayment={handleConfirmPayment}
               onCancelTrade={handleCancelTrade}
-              onRefresh={fetchUserTrades}
+              // Remove onRefresh to prevent timer from triggering refreshes
             />
           ))}
         </div>
@@ -172,7 +172,7 @@ const ActiveTradesPage = () => {
   );
 };
 
-const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfirmPayment, onCancelTrade, onRefresh }) => {
+const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfirmPayment, onCancelTrade }) => { // Removed onRefresh
   const isSeller = String(trade.seller_id) === String(userData?.id);
   const isBuyer = String(trade.buyer_id) === String(userData?.id);
   const counterparty = isSeller ? trade.buyer : trade.seller; 
@@ -185,7 +185,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
   const [uploadedFile, setUploadedFile] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(trade.time_remaining);
 
-  // Timer countdown
+  // Timer countdown - WITHOUT auto-refresh when expired
   useEffect(() => {
     if (!trade.expires_at) return;
 
@@ -197,7 +197,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
       if (diffMs <= 0) {
         setTimeRemaining('00:00');
         clearInterval(interval);
-        onRefresh(); // Refresh to update status
+        // REMOVED: onRefresh(); // This was causing the auto-refresh
         return;
       }
       
@@ -207,7 +207,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [trade.expires_at, onRefresh]);
+  }, [trade.expires_at]); // Removed onRefresh from dependencies
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
