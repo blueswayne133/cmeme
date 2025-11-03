@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Clock, User, Upload, Check, X, AlertTriangle, Eye, Send, FileText, AlertCircle } from "lucide-react";
+import { Clock, User, Upload, Check, X, AlertTriangle, Eye, Send, FileText, AlertCircle, MessageCircle, Edit, Banknote } from "lucide-react";
 import api from "../../../utils/api";
 import toast from "react-hot-toast";
 
@@ -42,6 +42,18 @@ const ActiveTradesPage = () => {
       toast.success('Payment proof uploaded successfully!');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to upload proof';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  const handleUpdatePaymentDetails = async (tradeId, paymentDetails) => {
+    try {
+      await api.post(`/p2p/trades/${tradeId}/update-payment-details`, paymentDetails);
+      fetchUserTrades();
+      toast.success('Payment details updated successfully!');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to update payment details';
       toast.error(errorMessage);
       throw error;
     }
@@ -106,6 +118,17 @@ const ActiveTradesPage = () => {
     }
   };
 
+  const handleSendMessage = async (tradeId, message) => {
+    try {
+      await api.post(`/p2p/trades/${tradeId}/message`, { message });
+      fetchUserTrades();
+      toast.success('Message sent successfully!');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to send message';
+      toast.error(errorMessage);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -134,11 +157,13 @@ const ActiveTradesPage = () => {
               trade={trade}
               userData={userData}
               onUploadProof={handleUploadProof}
+              onUpdatePaymentDetails={handleUpdatePaymentDetails}
               onMarkAsPaid={handleMarkAsPaid}
               onConfirmPayment={handleConfirmPayment}
               onRejectPayment={handleRejectPayment}
               onCreateDispute={handleCreateDispute}
               onCancelTrade={handleCancelTrade}
+              onSendMessage={handleSendMessage}
             />
           ))}
         </div>
@@ -151,11 +176,13 @@ const ActiveTradeCard = ({
   trade, 
   userData, 
   onUploadProof, 
+  onUpdatePaymentDetails,
   onMarkAsPaid, 
   onConfirmPayment, 
   onRejectPayment,
   onCreateDispute,
-  onCancelTrade 
+  onCancelTrade,
+  onSendMessage
 }) => {
   const isSeller = String(trade.seller_id) === String(userData?.id);
   const isBuyer = String(trade.buyer_id) === String(userData?.id);
@@ -165,9 +192,22 @@ const ActiveTradeCard = ({
   const [showCancel, setShowCancel] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [showDispute, setShowDispute] = useState(false);
+  const [showMessage, setShowMessage] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
+  const [messageText, setMessageText] = useState('');
+  const [paymentDetails, setPaymentDetails] = useState({
+    bank_name: '',
+    account_number: '',
+    account_name: '',
+    routing_number: '',
+    swift_code: '',
+    additional_notes: ''
+  });
+  const [updatingPayment, setUpdatingPayment] = useState(false);
   const [showBankDetails, setShowBankDetails] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(trade.time_remaining);
@@ -210,6 +250,31 @@ const ActiveTradeCard = ({
     }
   };
 
+  const handleUpdatePayment = async () => {
+    if (!paymentDetails.account_number || !paymentDetails.account_name) {
+      toast.error('Account number and account name are required');
+      return;
+    }
+
+    setUpdatingPayment(true);
+    try {
+      await onUpdatePaymentDetails(trade.id, paymentDetails);
+      setShowPaymentDetails(false);
+      setPaymentDetails({
+        bank_name: '',
+        account_number: '',
+        account_name: '',
+        routing_number: '',
+        swift_code: '',
+        additional_notes: ''
+      });
+    } catch (error) {
+      // Error handled in parent
+    } finally {
+      setUpdatingPayment(false);
+    }
+  };
+
   const handleCancel = () => {
     if (cancelReason.trim()) {
       onCancelTrade(trade.id, cancelReason);
@@ -234,9 +299,17 @@ const ActiveTradeCard = ({
     }
   };
 
+  const handleSendMessageClick = () => {
+    if (messageText.trim()) {
+      onSendMessage(trade.id, messageText);
+      setMessageText('');
+      setShowMessage(false);
+    }
+  };
+
   // Get payment details from trade
-  const paymentDetails = trade.payment_details || {};
-  const bankDetails = paymentDetails.instructions || trade.terms || 'No payment details provided';
+  const existingPaymentDetails = trade.payment_details || {};
+  const bankDetails = existingPaymentDetails.instructions || trade.terms || 'No payment details provided';
 
   // Check if proof exists and payment is marked as sent
   const hasProofs = trade.proofs && trade.proofs.length > 0;
@@ -296,6 +369,17 @@ const ActiveTradeCard = ({
     }
   };
 
+  // NEW: Determine who should update payment details
+  const shouldUpdatePaymentDetails = () => {
+    if (isSellOrder) {
+      // SELL ORDER: Seller should provide payment details
+      return isSeller && !paymentMarkedAsSent && !hasProofs;
+    } else {
+      // BUY ORDER: Buyer should provide payment details  
+      return isBuyer && !paymentMarkedAsSent && !hasProofs;
+    }
+  };
+
   return (
     <div className={`bg-gray-800/50 rounded-2xl p-4 md:p-6 border transition-all ${
       isExpired ? 'border-red-500/50' : 'border-gray-700/50'
@@ -333,11 +417,31 @@ const ActiveTradeCard = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* CHAT BUTTON */}
+          <button
+            onClick={() => setShowChat(true)}
+            className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+          >
+            <MessageCircle size={14} />
+            Chat
+          </button>
+
+          {/* UPDATE PAYMENT DETAILS BUTTON - NEW */}
+          {shouldUpdatePaymentDetails() && (
+            <button
+              onClick={() => setShowPaymentDetails(true)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+            >
+              <Banknote size={14} />
+              Update Payment
+            </button>
+          )}
+
           {/* BANK DETAILS BUTTON - CORRECTED LOGIC */}
           {shouldSeeBankDetails() && (
             <button
               onClick={() => setShowBankDetails(true)}
-              className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
             >
               <Eye size={14} />
               Bank Details
@@ -348,7 +452,7 @@ const ActiveTradeCard = ({
           {shouldUploadProof() && (
             <button
               onClick={() => setShowUpload(true)}
-              className="px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
             >
               <Upload size={14} />
               Upload Proof
@@ -359,7 +463,7 @@ const ActiveTradeCard = ({
           {shouldMarkAsPaid() && (
             <button
               onClick={() => onMarkAsPaid(trade.id)}
-              className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
             >
               <Send size={14} />
               Payment Sent
@@ -427,11 +531,19 @@ const ActiveTradeCard = ({
                 {isBuyer && !hasProofs && (
                   <div className="text-blue-200 text-xs md:text-sm space-y-1">
                     <p>💰 You are BUYING {trade.amount} CMEME from {trade.seller?.username}</p>
-                    <p>1. Click "Bank Details" to see seller's payment information</p>
-                    <p>2. Make payment of ${trade.total} to the provided account</p>
-                    <p>3. Upload payment proof</p>
-                    <p>4. Click "Payment Sent" to notify the seller</p>
-                    <p>5. Wait for seller to confirm and release CMEME tokens to you</p>
+                    <p>1. Wait for seller to provide payment details</p>
+                    <p>2. Click "Bank Details" to see seller's payment information</p>
+                    <p>3. Make payment of ${trade.total} to the provided account</p>
+                    <p>4. Upload payment proof</p>
+                    <p>5. Click "Payment Sent" to notify the seller</p>
+                    <p>6. Wait for seller to confirm and release CMEME tokens to you</p>
+                  </div>
+                )}
+                {isSeller && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.buyer?.username}</p>
+                    <p>1. Click "Update Payment" to provide your bank details</p>
+                    <p>2. Wait for buyer to make payment and upload proof</p>
                   </div>
                 )}
                 {isBuyer && hasProofs && !paymentMarkedAsSent && (
@@ -445,12 +557,6 @@ const ActiveTradeCard = ({
                     <p>✅ Payment marked as sent!</p>
                     <p>⏳ Waiting for {trade.seller?.username} to confirm receipt</p>
                     <p>🚀 You will receive {trade.amount} CMEME once confirmed</p>
-                  </div>
-                )}
-                {isSeller && !hasProofs && (
-                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
-                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.buyer?.username}</p>
-                    <p>⏳ Waiting for buyer to make payment and upload proof</p>
                   </div>
                 )}
                 {isSeller && hasProofs && !paymentMarkedAsSent && (
@@ -474,11 +580,19 @@ const ActiveTradeCard = ({
                 {isSeller && !hasProofs && (
                   <div className="text-blue-200 text-xs md:text-sm space-y-1">
                     <p>💰 You are BUYING {trade.amount} CMEME from {trade.buyer?.username}</p>
-                    <p>1. Click "Bank Details" to see buyer's payment information</p>
-                    <p>2. Make payment of ${trade.total} to the provided account</p>
-                    <p>3. Upload payment proof</p>
-                    <p>4. Click "Payment Sent" to notify the buyer</p>
-                    <p>5. Wait for buyer to confirm and receive CMEME tokens</p>
+                    <p>1. Click "Update Payment" to provide your bank details</p>
+                    <p>2. Wait for seller to make payment and upload proof</p>
+                  </div>
+                )}
+                {isBuyer && !hasProofs && (
+                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.seller?.username}</p>
+                    <p>1. Wait for buyer to provide payment details</p>
+                    <p>2. Click "Bank Details" to see buyer's payment information</p>
+                    <p>3. Make payment of ${trade.total} to the provided account</p>
+                    <p>4. Upload payment proof</p>
+                    <p>5. Click "Payment Sent" to notify the buyer</p>
+                    <p>6. Wait for buyer to confirm and receive CMEME tokens</p>
                   </div>
                 )}
                 {isSeller && hasProofs && !paymentMarkedAsSent && (
@@ -492,12 +606,6 @@ const ActiveTradeCard = ({
                     <p>✅ Payment marked as sent!</p>
                     <p>⏳ Waiting for {trade.buyer?.username} to confirm receipt</p>
                     <p>🚀 You will receive {trade.amount} CMEME once confirmed</p>
-                  </div>
-                )}
-                {isBuyer && !hasProofs && (
-                  <div className="text-blue-200 text-xs md:text-sm space-y-1">
-                    <p>💰 You are SELLING {trade.amount} CMEME to {trade.seller?.username}</p>
-                    <p>⏳ Waiting for seller to make payment and upload proof</p>
                   </div>
                 )}
                 {isBuyer && hasProofs && !paymentMarkedAsSent && (
@@ -592,6 +700,41 @@ const ActiveTradeCard = ({
         </div>
       )}
 
+      {/* TRADE MESSAGES DISPLAY */}
+      {trade.messages && trade.messages.length > 0 && (
+        <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 md:p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <MessageCircle size={18} className="text-purple-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h5 className="text-purple-300 font-semibold text-sm md:text-base mb-2">
+                Recent Messages ({trade.messages.length})
+              </h5>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {trade.messages.slice(-5).map((message) => (
+                  <div key={message.id} className={`p-2 rounded-lg ${
+                    message.is_system 
+                      ? 'bg-gray-700/50 text-gray-300' 
+                      : message.user_id === userData?.id
+                      ? 'bg-blue-500/20 text-blue-200'
+                      : 'bg-gray-700/30 text-gray-200'
+                  }`}>
+                    <div className="flex justify-between items-start">
+                      <span className="font-medium text-xs">
+                        {message.is_system ? 'System' : message.user_id === userData?.id ? 'You' : counterparty?.username}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(message.created_at).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-sm mt-1">{message.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-sm mb-4">
         <div>
           <p className="text-gray-400 text-xs md:text-sm">Amount</p>
@@ -632,6 +775,138 @@ const ActiveTradeCard = ({
         </div>
       </div>
 
+      {/* Update Payment Details Modal */}
+      {showPaymentDetails && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 md:p-6 border-b border-gray-700">
+              <h3 className="text-lg font-bold text-gray-100">Update Payment Details</h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Provide your bank account details where you want to receive payment.
+              </p>
+            </div>
+            <div className="p-4 md:p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Bank Name</label>
+                  <input
+                    type="text"
+                    value={paymentDetails.bank_name}
+                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, bank_name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    placeholder="e.g., Chase Bank"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Account Number *</label>
+                  <input
+                    type="text"
+                    value={paymentDetails.account_number}
+                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, account_number: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    placeholder="1234567890"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Account Name *</label>
+                  <input
+                    type="text"
+                    value={paymentDetails.account_name}
+                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, account_name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">Routing Number</label>
+                  <input
+                    type="text"
+                    value={paymentDetails.routing_number}
+                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, routing_number: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    placeholder="021000021"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-2">SWIFT Code</label>
+                  <input
+                    type="text"
+                    value={paymentDetails.swift_code}
+                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, swift_code: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    placeholder="CHASUS33"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Additional Notes</label>
+                <textarea
+                  value={paymentDetails.additional_notes}
+                  onChange={(e) => setPaymentDetails(prev => ({ ...prev, additional_notes: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  placeholder="Any additional payment instructions..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={18} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h5 className="text-yellow-300 font-semibold">Important</h5>
+                    <ul className="text-yellow-200 text-sm mt-1 space-y-1">
+                      <li>• Double-check your account details before submitting</li>
+                      <li>• Ensure the account name matches your legal name</li>
+                      <li>• These details will be shared with the counterparty</li>
+                      <li>• You can update these details anytime before payment is made</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setShowPaymentDetails(false);
+                    setPaymentDetails({
+                      bank_name: '',
+                      account_number: '',
+                      account_name: '',
+                      routing_number: '',
+                      swift_code: '',
+                      additional_notes: ''
+                    });
+                  }}
+                  className="flex-1 py-3 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-semibold rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdatePayment}
+                  disabled={updatingPayment || !paymentDetails.account_number || !paymentDetails.account_name}
+                  className="flex-1 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:opacity-50 text-gray-900 font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  {updatingPayment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Banknote size={16} />
+                      Update Payment Details
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bank Details Modal */}
       {showBankDetails && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
@@ -647,7 +922,7 @@ const ActiveTradeCard = ({
             <div className="p-4 md:p-6 space-y-4">
               <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
                 <h4 className="text-gray-300 font-semibold mb-3">
-                  {isSellOrder ? "Seller's Payment Details" : "Your Payment Details"}
+                  {isSellOrder ? "Seller's Payment Details" : "Buyer's Payment Details"}
                 </h4>
                 <div className="space-y-3">
                   <div>
@@ -755,6 +1030,78 @@ const ActiveTradeCard = ({
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Modal */}
+      {showChat && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 md:p-6 border-b border-gray-700">
+              <h3 className="text-lg font-bold text-gray-100">Trade Chat</h3>
+              <p className="text-gray-400 text-sm">Trade #{trade.id} with {counterparty?.username}</p>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 max-h-96">
+              {trade.messages && trade.messages.length > 0 ? (
+                trade.messages.map((message) => (
+                  <div key={message.id} className={`p-3 rounded-lg ${
+                    message.is_system 
+                      ? 'bg-gray-700/50 text-gray-300 text-center' 
+                      : message.user_id === userData?.id
+                      ? 'bg-blue-500/20 text-blue-200 ml-8'
+                      : 'bg-gray-700/30 text-gray-200 mr-8'
+                  }`}>
+                    {!message.is_system && (
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium text-xs">
+                          {message.user_id === userData?.id ? 'You' : counterparty?.username}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(message.created_at).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-sm">{message.message}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  <MessageCircle size={32} className="mx-auto mb-2" />
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-700">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessageClick()}
+                />
+                <button
+                  onClick={handleSendMessageClick}
+                  disabled={!messageText.trim()}
+                  className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:opacity-50 text-gray-900 font-semibold rounded-xl transition-all"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowChat(false)}
+                className="w-full py-2 border border-gray-600 text-gray-300 hover:border-gray-500 rounded-xl transition-colors"
+              >
+                Close Chat
+              </button>
             </div>
           </div>
         </div>

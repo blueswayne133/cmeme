@@ -66,7 +66,7 @@ const P2PTradePage = () => {
       return;
     }
 
-    // Check balance for sell tab (where user is responding to someone's BUY order)
+    // CORRECTED BALANCE CHECK LOGIC:
     if (activeTab === 'sell') {
       // When user is on sell tab, they are responding to someone's BUY order
       // So they need CMEME tokens to sell
@@ -263,6 +263,7 @@ const P2PTradePage = () => {
 const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, activeTab }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
   
+  // CORRECTED BUTTON TEXT LOGIC:
   const getButtonText = () => {
     if (activeTab === 'buy') {
       return 'Buy CMEME';
@@ -279,14 +280,18 @@ const TradeCard = ({ trade, onViewDetails, onInitiate, userData, isKycVerified, 
     }
   };
 
+  // CORRECTED TRADE TYPE INFO LOGIC:
   const getTradeTypeInfo = () => {
     if (activeTab === 'buy') {
+      // On Buy tab, we show SELL orders (people selling CMEME)
       return `${trade.seller?.username} is selling CMEME`;
     } else {
+      // On Sell tab, we show BUY orders (people buying CMEME)  
       return `${trade.seller?.username} is buying CMEME`;
     }
   };
 
+  // CORRECTED BALANCE WARNING LOGIC:
   const getBalanceWarning = () => {
     if (activeTab === 'sell' && !isOwnTrade) {
       // When user is on sell tab and viewing someone else's BUY order
@@ -425,7 +430,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
       newErrors.terms = 'Payment instructions are required';
     }
 
-    // Check balance for sell orders
+    // CORRECTED BALANCE CHECK: Only check for sell orders
     if (formData.type === 'sell' && userData?.token_balance < parseFloat(formData.amount)) {
       newErrors.amount = `Insufficient CMEME balance. You have ${userData?.token_balance || 0} CMEME but need ${formData.amount} CMEME.`;
     }
@@ -667,6 +672,7 @@ const CreateTradeModal = ({ onClose, onSubmit, userData, isKycVerified }) => {
 const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKycVerified, activeTab }) => {
   const isOwnTrade = String(trade.seller_id) === String(userData?.id);
   
+  // CORRECTED INITIATE BUTTON TEXT:
   const getInitiateButtonText = () => {
     if (activeTab === 'buy') {
       return 'Start Trade - Buy CMEME';
@@ -679,6 +685,7 @@ const TradeDetailModal = ({ trade, onClose, onInitiate, onDelete, userData, isKy
     return trade.type === 'sell' ? 'Selling CMEME' : 'Buying CMEME';
   };
 
+  // CORRECTED BALANCE WARNING LOGIC:
   const getBalanceWarning = () => {
     if (activeTab === 'sell' && !isOwnTrade) {
       // When user is on sell tab and viewing someone else's BUY order
