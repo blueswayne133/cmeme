@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Check, X, Clock, AlertTriangle, Ban, RefreshCw, FileText, MessageCircle, Shield } from "lucide-react";
+import { Check, X, Clock, AlertTriangle, Ban, RefreshCw, FileText } from "lucide-react";
 import api from "../../../utils/api";
-import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const P2PHistoryPage = () => {
@@ -10,37 +9,17 @@ const P2PHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const { userData } = useOutletContext();
-  const echoRef = useRef(null);
 
   useEffect(() => {
     fetchTradeHistory();
-    setupWebSockets();
     
-    return () => {
-      if (echoRef.current) {
-        echoRef.current.disconnect();
-      }
-    };
+    // Set up polling for updates
+    const interval = setInterval(() => {
+      fetchTradeHistory();
+    }, 15000);
+    
+    return () => clearInterval(interval);
   }, [filter]);
-
-  const setupWebSockets = () => {
-    if (echoRef.current) {
-      echoRef.current.disconnect();
-    }
-
-    echoRef.current = getEchoInstance();
-
-    // Listen for trade updates
-    echoRef.current.channel('p2p-trades')
-      .listen('.P2PTradeUpdated', (e) => {
-        console.log('History trade updated:', e.trade);
-        setTrades(prevTrades => 
-          prevTrades.map(trade => 
-            trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
-          )
-        );
-      });
-  };
 
   const fetchTradeHistory = async () => {
     try {
@@ -49,13 +28,10 @@ const P2PHistoryPage = () => {
         params: filter === 'all' ? {} : { status: filter }
       });
       
-      console.log('Trade history response:', response.data);
-      
-      // Filter to show only trades where user participated (as buyer or seller)
       const allTrades = response.data.data?.trades?.data || response.data.data?.trades || [];
       const userTrades = allTrades.filter(trade => 
-        trade.buyer_id === userData?.id || // User participated as buyer
-        trade.seller_id === userData?.id   // User participated as seller
+        trade.buyer_id === userData?.id || 
+        trade.seller_id === userData?.id
       );
       
       setTrades(userTrades);
@@ -75,7 +51,7 @@ const P2PHistoryPage = () => {
     try {
       await api.post(`/p2p/trades/${tradeId}/cancel`, { reason });
       toast.success('Trade cancelled successfully');
-      fetchTradeHistory(); // Refresh the list
+      fetchTradeHistory();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to cancel trade';
       toast.error(errorMessage);
@@ -121,9 +97,7 @@ const P2PHistoryPage = () => {
   };
 
   const canCancelTrade = (trade) => {
-    // User can cancel if they are the creator (seller) and trade is active
-    // Or if they are involved in a processing trade
-     const isSeller = String(trade.seller_id) === String(userData?.id);
+    const isSeller = String(trade.seller_id) === String(userData?.id);
     
     if (trade.status === 'active' && isSeller) {
       return true;
@@ -265,88 +239,39 @@ const P2PHistoryPage = () => {
                         className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all text-sm"
                       >
                         <FileText size={14} />
-                        View Proof {proof.id}
+                        View Proof
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Dispute Information */}
-              {trade.dispute && (
-                <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={16} className="text-orange-400" />
-                    <span className="text-orange-300 font-semibold">Dispute Raised</span>
+              {/* Additional Information */}
+              <div className="flex flex-wrap gap-4 text-xs md:text-sm text-gray-400">
+                <div>
+                  <span className="text-gray-500">Trade Type:</span> {trade.type}
+                </div>
+                {trade.expires_at && (
+                  <div>
+                    <span className="text-gray-500">Expired:</span> {new Date(trade.expires_at).toLocaleString()}
                   </div>
-                  <p className="text-orange-200 text-sm">
-                    <strong>Reason:</strong> {trade.dispute.reason}
-                  </p>
-                  <p className="text-orange-200 text-sm">
-                    <strong>Status:</strong> {trade.dispute.status}
-                  </p>
-                  {trade.dispute.resolution && (
-                    <p className="text-orange-200 text-sm">
-                      <strong>Resolution:</strong> {trade.dispute.resolution}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Additional Trade Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-sm">
-                <div>
-                  <p className="text-gray-400 text-xs md:text-sm">Time Limit</p>
-                  <p className="text-gray-100 text-sm md:text-base">{trade.time_limit} minutes</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs md:text-sm">Trade Type</p>
-                  <p className="text-gray-100 text-sm md:text-base capitalize">{trade.type}</p>
-                </div>
+                )}
+                {trade.paid_at && (
+                  <div>
+                    <span className="text-gray-500">Paid At:</span> {new Date(trade.paid_at).toLocaleString()}
+                  </div>
+                )}
+                {trade.cancelled_at && (
+                  <div>
+                    <span className="text-gray-500">Cancelled At:</span> {new Date(trade.cancelled_at).toLocaleString()}
+                  </div>
+                )}
+                {trade.cancellation_reason && (
+                  <div className="w-full">
+                    <span className="text-gray-500">Cancellation Reason:</span> {trade.cancellation_reason}
+                  </div>
+                )}
               </div>
-
-              {/* Trade Terms */}
-              {trade.terms && (
-                <div className="mt-4 p-3 bg-gray-900/50 rounded-xl border border-gray-700">
-                  <p className="text-gray-400 text-sm mb-1">Trade Terms</p>
-                  <p className="text-gray-200 text-sm">{trade.terms}</p>
-                </div>
-              )}
-
-              {/* Cancellation Reason */}
-              {trade.cancellation_reason && (
-                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                  <p className="text-red-400 text-sm">
-                    <strong>Cancellation Reason:</strong> {trade.cancellation_reason}
-                  </p>
-                </div>
-              )}
-
-              {/* Expiration Time for Processing Trades */}
-              {trade.status === 'processing' && trade.expires_at && (
-                <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                  <p className="text-yellow-400 text-sm">
-                    <strong>Expires:</strong> {new Date(trade.expires_at).toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              {/* Completed/Cancelled Time */}
-              {(trade.status === 'completed' && trade.completed_at) && (
-                <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-                  <p className="text-green-400 text-sm">
-                    <strong>Completed:</strong> {new Date(trade.completed_at).toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              {(trade.status === 'cancelled' && trade.cancelled_at) && (
-                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                  <p className="text-red-400 text-sm">
-                    <strong>Cancelled:</strong> {new Date(trade.cancelled_at).toLocaleString()}
-                  </p>
-                </div>
-              )}
             </div>
           ))}
         </div>

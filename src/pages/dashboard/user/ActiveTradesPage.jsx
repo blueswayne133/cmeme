@@ -1,50 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Clock, User, DollarSign, Coins, Upload, Check, X, AlertTriangle, Eye, Shield, Send, MessageCircle, FileText } from "lucide-react";
+import { Clock, User, Upload, Check, X, AlertTriangle, Eye, Send, FileText, AlertCircle } from "lucide-react";
 import api from "../../../utils/api";
-// import getEchoInstance from "../../../utils/echo";
 import toast from "react-hot-toast";
 
 const ActiveTradesPage = () => {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const { userData } = useOutletContext();
-  // const echoRef = useRef(null);
 
   useEffect(() => {
     fetchUserTrades();
-    // setupWebSockets();
-    
-    return () => {
-      // if (echoRef.current) {
-      //   echoRef.current.disconnect();
-      // }
-    };
   }, []);
-
-  // const setupWebSockets = () => {
-  //   if (echoRef.current) {
-  //     echoRef.current.disconnect();
-  //   }
-
-  //   echoRef.current = getEchoInstance();
-
-  //   // Listen for connection events
-  //   echoRef.current.connector.pusher.connection.bind('connected', () => {
-  //     console.log('✅ Pusher connected successfully for active trades');
-  //   });
-
-  //   // Listen for trade updates
-  //   echoRef.current.channel('p2p-trades')
-  //     .listen('.P2PTradeUpdated', (e) => {
-  //       console.log('Active trade updated:', e.trade);
-  //       setTrades(prevTrades => 
-  //         prevTrades.map(trade => 
-  //           trade.id === e.trade.id ? { ...trade, ...e.trade } : trade
-  //         ).filter(trade => trade.status === 'processing')
-  //       );
-  //     });
-  // };
 
   const fetchUserTrades = async () => {
     try {
@@ -102,6 +69,28 @@ const ActiveTradesPage = () => {
     }
   };
 
+  const handleRejectPayment = async (tradeId, reason) => {
+    try {
+      await api.post(`/p2p/trades/${tradeId}/reject-payment`, { reason });
+      fetchUserTrades();
+      toast.success('Payment rejected. Buyer has been notified.');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to reject payment';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleCreateDispute = async (tradeId, reason) => {
+    try {
+      await api.post(`/p2p/trades/${tradeId}/dispute`, { reason });
+      fetchUserTrades();
+      toast.success('Dispute created successfully! Support will review your case.');
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to create dispute';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleCancelTrade = async (tradeId, reason) => {
     if (!confirm("Are you sure you want to cancel this trade?")) {
       return;
@@ -117,17 +106,6 @@ const ActiveTradesPage = () => {
     }
   };
 
-  // Auto-refresh trades every 5 minutes - COMMENTED OUT
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     if (trades.length > 0) {
-  //       fetchUserTrades();
-  //     }
-  //   }, 300000);
-
-  //   return () => clearInterval(interval);
-  // }, [trades.length]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -140,10 +118,6 @@ const ActiveTradesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-100">Active Trades</h2>
-        {/* <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Clock size={16} />
-          <span>Auto-refreshing every 5 minutes</span>
-        </div> */}
       </div>
 
       {trades.length === 0 ? (
@@ -162,8 +136,9 @@ const ActiveTradesPage = () => {
               onUploadProof={handleUploadProof}
               onMarkAsPaid={handleMarkAsPaid}
               onConfirmPayment={handleConfirmPayment}
+              onRejectPayment={handleRejectPayment}
+              onCreateDispute={handleCreateDispute}
               onCancelTrade={handleCancelTrade}
-              // Remove onRefresh to prevent timer from triggering refreshes
             />
           ))}
         </div>
@@ -172,20 +147,32 @@ const ActiveTradesPage = () => {
   );
 };
 
-const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfirmPayment, onCancelTrade }) => { // Removed onRefresh
+const ActiveTradeCard = ({ 
+  trade, 
+  userData, 
+  onUploadProof, 
+  onMarkAsPaid, 
+  onConfirmPayment, 
+  onRejectPayment,
+  onCreateDispute,
+  onCancelTrade 
+}) => {
   const isSeller = String(trade.seller_id) === String(userData?.id);
   const isBuyer = String(trade.buyer_id) === String(userData?.id);
   const counterparty = isSeller ? trade.buyer : trade.seller; 
   
   const [showUpload, setShowUpload] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [showReject, setShowReject] = useState(false);
+  const [showDispute, setShowDispute] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [disputeReason, setDisputeReason] = useState('');
   const [showBankDetails, setShowBankDetails] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(trade.time_remaining);
 
-  // Timer countdown - WITHOUT auto-refresh when expired
+  // Timer countdown
   useEffect(() => {
     if (!trade.expires_at) return;
 
@@ -197,7 +184,6 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
       if (diffMs <= 0) {
         setTimeRemaining('00:00');
         clearInterval(interval);
-        // REMOVED: onRefresh(); // This was causing the auto-refresh
         return;
       }
       
@@ -207,7 +193,7 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [trade.expires_at]); // Removed onRefresh from dependencies
+  }, [trade.expires_at]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -215,7 +201,6 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
       setUploading(true);
       try {
         await onUploadProof(trade.id, file);
-        setUploadedFile(file);
         setShowUpload(false);
       } catch (error) {
         // Error handled in parent
@@ -233,15 +218,38 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
     }
   };
 
+  const handleReject = () => {
+    if (rejectReason.trim()) {
+      onRejectPayment(trade.id, rejectReason);
+      setShowReject(false);
+      setRejectReason('');
+    }
+  };
+
+  const handleDispute = () => {
+    if (disputeReason.trim()) {
+      onCreateDispute(trade.id, disputeReason);
+      setShowDispute(false);
+      setDisputeReason('');
+    }
+  };
+
   // Get payment details from trade
   const paymentDetails = trade.payment_details || {};
   const bankDetails = paymentDetails.instructions || trade.terms || 'No payment details provided';
 
-  // Check if proof exists
+  // Check if proof exists and payment is marked as sent
   const hasProofs = trade.proofs && trade.proofs.length > 0;
+  const paymentMarkedAsSent = trade.paid_at !== null;
   const latestProof = hasProofs ? trade.proofs[trade.proofs.length - 1] : null;
 
   const isExpired = timeRemaining === '00:00' || trade.status !== 'processing';
+
+  // Determine if cancel button should be shown
+  const showCancelButton = 
+    (isSeller && trade.status === 'active') || 
+    (isBuyer && trade.status === 'processing') || 
+    (isSeller && trade.status === 'processing' && !trade.buyer_id);
 
   return (
     <div className={`bg-gray-800/50 rounded-2xl p-4 md:p-6 border transition-all ${
@@ -261,12 +269,21 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
           </div>
           <div className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
             trade.paid_at 
-              ? 'bg-green-500/20 text-green-400' 
+              ? paymentMarkedAsSent && !trade.completed_at
+                ? 'bg-yellow-500/20 text-yellow-400' 
+                : 'bg-green-500/20 text-green-400'
               : hasProofs
-              ? 'bg-yellow-500/20 text-yellow-400'
+              ? 'bg-blue-500/20 text-blue-400'
               : 'bg-gray-500/20 text-gray-400'
           }`}>
-            {trade.paid_at ? 'Payment Confirmed' : hasProofs ? 'Proof Uploaded' : 'Awaiting Payment'}
+            {trade.paid_at 
+              ? paymentMarkedAsSent && !trade.completed_at
+                ? 'Payment Sent - Awaiting Confirmation'
+                : 'Payment Confirmed'
+              : hasProofs
+              ? 'Proof Uploaded'
+              : 'Awaiting Payment'
+            }
           </div>
         </div>
 
@@ -303,23 +320,48 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
             </>
           )}
 
-          {isSeller && hasProofs && !trade.paid_at && (
+          {/* SELLER ACTIONS - Only show if payment is marked as sent but not confirmed */}
+          {isSeller && hasProofs && paymentMarkedAsSent && !trade.completed_at && (
+            <>
+              <button
+                onClick={() => onConfirmPayment(trade.id)}
+                className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              >
+                <Check size={14} />
+                Confirm Payment
+              </button>
+              
+              <button
+                onClick={() => setShowReject(true)}
+                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              >
+                <X size={14} />
+                Reject Payment
+              </button>
+            </>
+          )}
+
+          {/* BUYER CAN FILE DISPUTE IF PAYMENT IS REJECTED OR NOT CONFIRMED AFTER MARKING AS SENT */}
+          {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
             <button
-              onClick={() => onConfirmPayment(trade.id)}
-              className="px-3 md:px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
+              onClick={() => setShowDispute(true)}
+              className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2 text-xs md:text-sm"
             >
-              <Check size={14} />
-              Release Tokens
+              <AlertCircle size={14} />
+              File Dispute
             </button>
           )}
 
-          <button
-            onClick={() => setShowCancel(true)}
-            className="px-3 md:px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-semibold rounded-xl transition-colors flex items-center gap-2 text-xs md:text-sm"
-          >
-            <X size={14} />
-            Cancel
-          </button>
+          {/* CANCEL TRADE BUTTON - Only show for seller when active, or buyer when processing */}
+          {showCancelButton && (
+            <button
+              onClick={() => setShowCancel(true)}
+              className="px-3 md:px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-semibold rounded-xl transition-colors flex items-center gap-2 text-xs md:text-sm"
+            >
+              <X size={14} />
+              Cancel Trade
+            </button>
+          )}
         </div>
       </div>
 
@@ -335,27 +377,43 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
                 <p>2. Make payment to the provided account</p>
                 <p>3. Click "Upload Proof" and upload your payment receipt</p>
                 <p>4. Click "Payment Sent" to notify the seller</p>
-                <p>5. Wait for seller to confirm and release tokens</p>
+                <p>5. Wait for seller to confirm payment and release tokens</p>
               </div>
             )}
             {isBuyer && hasProofs && !trade.paid_at && (
               <div className="text-yellow-200 text-xs md:text-sm space-y-1">
                 <p>✅ Payment proof uploaded successfully!</p>
                 <p>📤 Click "Payment Sent" to notify the seller about your payment</p>
-                <p>⏳ Waiting for seller to verify and release tokens</p>
+                <p>⏳ Seller will review your payment proof and confirm receipt</p>
               </div>
             )}
-            {isBuyer && trade.paid_at && (
+            {isBuyer && paymentMarkedAsSent && !trade.completed_at && (
+              <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                <p>✅ Payment proof uploaded and marked as sent!</p>
+                <p>⏳ Waiting for seller to confirm they received the payment</p>
+                <p>📞 Seller has been notified and will verify the payment</p>
+                <p>⚠️ If seller doesn't respond, you can file a dispute</p>
+              </div>
+            )}
+            {isBuyer && trade.completed_at && (
               <div className="text-green-200 text-xs md:text-sm">
-                <p>✅ Trade completed! Tokens have been released to your account.</p>
+                <p>✅ Payment confirmed! Tokens have been released to your account.</p>
               </div>
             )}
-            {isSeller && hasProofs && !trade.paid_at && (
+            {isSeller && hasProofs && !paymentMarkedAsSent && (
+              <div className="text-blue-200 text-xs md:text-sm space-y-1">
+                <p>📥 Buyer has uploaded payment proof</p>
+                <p>⏳ Waiting for buyer to mark payment as sent</p>
+                <p>💰 Once buyer clicks "Payment Sent", you can verify and confirm</p>
+              </div>
+            )}
+            {isSeller && paymentMarkedAsSent && !trade.completed_at && (
               <div className="text-green-200 text-xs md:text-sm space-y-1">
-                <p>📥 Buyer has uploaded payment proof and marked payment as sent</p>
-                <p>💰 Check your bank account to confirm receipt</p>
-                <p>✅ Click "Release Tokens" to complete the trade</p>
-                <p>🚀 Tokens will be transferred to buyer automatically</p>
+                <p>📥 Buyer has marked payment as sent!</p>
+                <p>💰 Check your bank account to confirm receipt of payment</p>
+                <p>✅ Click "Confirm Payment" if you received the money</p>
+                <p>❌ Click "Reject Payment" if you didn't receive the money</p>
+                <p>🚀 Tokens will be automatically released to buyer when you confirm</p>
               </div>
             )}
             {isSeller && !hasProofs && (
@@ -367,29 +425,54 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
         </div>
       </div>
 
-      {/* Payment Proof Information */}
+      {/* PAYMENT PROOF DISPLAY - Show for both parties when proof is uploaded */}
       {hasProofs && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 md:p-4 mb-4">
-          <div className="flex items-center gap-3">
-            <FileText size={18} className="text-green-400 flex-shrink-0" />
-            <div>
-              <h5 className="text-green-300 font-semibold text-sm md:text-base">Payment Proof Uploaded</h5>
-              <p className="text-green-200 text-xs md:text-sm">
+          <div className="flex items-start gap-3">
+            <FileText size={18} className="text-green-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h5 className="text-green-300 font-semibold text-sm md:text-base mb-2">
+                Payment Proof {isSeller ? "Uploaded by Buyer" : "Uploaded by You"}
+              </h5>
+              <p className="text-green-200 text-xs md:text-sm mb-3">
                 {latestProof?.description || 'Payment receipt uploaded'} • {new Date(latestProof?.created_at).toLocaleString()}
               </p>
-              {isSeller && (
-                <p className="text-green-200 text-xs md:text-sm mt-1">
-                  Please verify the payment in your account before releasing tokens.
-                </p>
-              )}
+              
+              {/* DISPLAY THE PROOF IMAGE */}
               {latestProof?.file_path && (
-                <button
-                  onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
-                  className="text-blue-400 hover:text-blue-300 text-xs md:text-sm mt-1 flex items-center gap-1"
-                >
-                  <Eye size={12} />
-                  View Proof
-                </button>
+                <div className="mt-3">
+                  <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
+                  <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
+                      alt="Payment proof" 
+                      className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <div style={{display: 'none'}} className="text-center text-gray-400 py-4">
+                      <FileText size={32} className="mx-auto mb-2" />
+                      <p>Proof image cannot be displayed</p>
+                      <button
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
+                        className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
+                      >
+                        <Eye size={14} />
+                        View Proof in New Tab
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {isSeller && paymentMarkedAsSent && (
+                <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-yellow-200 text-sm">
+                    <strong>Seller Action Required:</strong> Buyer has marked payment as sent. Please verify this payment proof matches the actual payment received in your account.
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -535,6 +618,82 @@ const ActiveTradeCard = ({ trade, userData, onUploadProof, onMarkAsPaid, onConfi
                   className="flex-1 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 rounded-xl transition-colors disabled:opacity-50"
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Payment Modal */}
+      {showReject && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl">
+            <div className="p-4 md:p-6 border-b border-gray-700">
+              <h3 className="text-lg font-bold text-gray-100">Reject Payment</h3>
+            </div>
+            <div className="p-4 md:p-6 space-y-4">
+              <p className="text-gray-300">Please provide a reason for rejecting this payment:</p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter rejection reason (e.g., payment not received, wrong amount, etc.)..."
+                className="w-full h-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400 resize-none"
+              />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setShowReject(false);
+                    setRejectReason('');
+                  }}
+                  className="flex-1 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={!rejectReason.trim()}
+                  className="flex-1 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-all"
+                >
+                  Confirm Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Dispute Modal */}
+      {showDispute && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl">
+            <div className="p-4 md:p-6 border-b border-gray-700">
+              <h3 className="text-lg font-bold text-gray-100">File Dispute</h3>
+            </div>
+            <div className="p-4 md:p-6 space-y-4">
+              <p className="text-gray-300">Please provide details about the dispute:</p>
+              <textarea
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                placeholder="Enter dispute details (e.g., seller not releasing tokens, payment issues, etc.)..."
+                className="w-full h-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:border-yellow-400 resize-none"
+              />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setShowDispute(false);
+                    setDisputeReason('');
+                  }}
+                  className="flex-1 py-2 border border-gray-600 text-gray-300 hover:border-gray-500 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDispute}
+                  disabled={!disputeReason.trim()}
+                  className="flex-1 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-all"
+                >
+                  File Dispute
                 </button>
               </div>
             </div>
