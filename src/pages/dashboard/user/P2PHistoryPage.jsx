@@ -235,7 +235,7 @@ const P2PHistoryPage = () => {
                     {trade.proofs.map((proof) => (
                       <button
                         key={proof.id}
-                        onClick={() => viewProof(proof)}
+                                        onClick={() => window.open(proof.file_path, '_blank')}
                         className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all text-sm"
                       >
                         <FileText size={14} />

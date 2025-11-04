@@ -199,14 +199,7 @@ const ActiveTradeCard = ({
   const [rejectReason, setRejectReason] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
   const [messageText, setMessageText] = useState('');
-  const [paymentDetails, setPaymentDetails] = useState({
-    bank_name: '',
-    account_number: '',
-    account_name: '',
-    routing_number: '',
-    swift_code: '',
-    additional_notes: ''
-  });
+  const [paymentDetails, setPaymentDetails] = useState('');
   const [updatingPayment, setUpdatingPayment] = useState(false);
   const [showBankDetails, setShowBankDetails] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -251,23 +244,16 @@ const ActiveTradeCard = ({
   };
 
   const handleUpdatePayment = async () => {
-    if (!paymentDetails.account_number || !paymentDetails.account_name) {
-      toast.error('Account number and account name are required');
+    if (!paymentDetails.trim()) {
+      toast.error('Payment details are required');
       return;
     }
 
     setUpdatingPayment(true);
     try {
-      await onUpdatePaymentDetails(trade.id, paymentDetails);
+      await onUpdatePaymentDetails(trade.id, { details: paymentDetails });
       setShowPaymentDetails(false);
-      setPaymentDetails({
-        bank_name: '',
-        account_number: '',
-        account_name: '',
-        routing_number: '',
-        swift_code: '',
-        additional_notes: ''
-      });
+      setPaymentDetails('');
     } catch (error) {
       // Error handled in parent
     } finally {
@@ -308,8 +294,7 @@ const ActiveTradeCard = ({
   };
 
   // Get payment details from trade
-  const existingPaymentDetails = trade.payment_details || {};
-  const bankDetails = existingPaymentDetails.instructions || trade.terms || 'No payment details provided';
+  const bankDetails = trade.payment_details || 'No payment details provided yet';
 
   // Check if proof exists and payment is marked as sent
   const hasProofs = trade.proofs && trade.proofs.length > 0;
@@ -660,7 +645,7 @@ const ActiveTradeCard = ({
                   <p className="text-green-200 text-sm mb-2">Payment Proof Image:</p>
                   <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
                     <img 
-                      src={`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`}
+                      src={latestProof.file_path}
                       alt="Payment proof" 
                       className="max-w-full h-auto max-h-64 rounded-lg mx-auto"
                       onError={(e) => {
@@ -677,7 +662,7 @@ const ActiveTradeCard = ({
                       <FileText size={32} className="mx-auto mb-2" />
                       <p>Proof image cannot be displayed</p>
                       <button
-                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/storage/${latestProof.file_path}`, '_blank')}
+                        onClick={() => window.open(latestProof.file_path, '_blank')}
                         className="text-blue-400 hover:text-blue-300 text-sm mt-2 flex items-center gap-1 justify-center"
                       >
                         <Eye size={14} />
@@ -778,77 +763,22 @@ const ActiveTradeCard = ({
       {/* Update Payment Details Modal */}
       {showPaymentDetails && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
-          <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl">
             <div className="p-4 md:p-6 border-b border-gray-700">
               <h3 className="text-lg font-bold text-gray-100">Update Payment Details</h3>
               <p className="text-gray-400 text-sm mt-1">
-                Provide your bank account details where you want to receive payment.
+                Provide your payment details where you want to receive payment.
               </p>
             </div>
             <div className="p-4 md:p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">Bank Name</label>
-                  <input
-                    type="text"
-                    value={paymentDetails.bank_name}
-                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, bank_name: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                    placeholder="e.g., Chase Bank"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">Account Number *</label>
-                  <input
-                    type="text"
-                    value={paymentDetails.account_number}
-                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, account_number: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                    placeholder="1234567890"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">Account Name *</label>
-                  <input
-                    type="text"
-                    value={paymentDetails.account_name}
-                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, account_name: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">Routing Number</label>
-                  <input
-                    type="text"
-                    value={paymentDetails.routing_number}
-                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, routing_number: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                    placeholder="021000021"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-2">SWIFT Code</label>
-                  <input
-                    type="text"
-                    value={paymentDetails.swift_code}
-                    onChange={(e) => setPaymentDetails(prev => ({ ...prev, swift_code: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                    placeholder="CHASUS33"
-                  />
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2">Additional Notes</label>
+                <label className="block text-gray-300 text-sm font-medium mb-2">Payment Details *</label>
                 <textarea
-                  value={paymentDetails.additional_notes}
-                  onChange={(e) => setPaymentDetails(prev => ({ ...prev, additional_notes: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                  placeholder="Any additional payment instructions..."
-                  rows="3"
+                  value={paymentDetails}
+                  onChange={(e) => setPaymentDetails(e.target.value)}
+                  className="w-full h-32 px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 resize-none"
+                  placeholder="Enter your complete payment details (bank account, wallet address, PayPal email, etc.)"
+                  required
                 />
               </div>
 
@@ -858,8 +788,8 @@ const ActiveTradeCard = ({
                   <div>
                     <h5 className="text-yellow-300 font-semibold">Important</h5>
                     <ul className="text-yellow-200 text-sm mt-1 space-y-1">
-                      <li>• Double-check your account details before submitting</li>
-                      <li>• Ensure the account name matches your legal name</li>
+                      <li>• Provide clear payment instructions</li>
+                      <li>• Include all necessary details for payment</li>
                       <li>• These details will be shared with the counterparty</li>
                       <li>• You can update these details anytime before payment is made</li>
                     </ul>
@@ -871,14 +801,7 @@ const ActiveTradeCard = ({
                 <button
                   onClick={() => {
                     setShowPaymentDetails(false);
-                    setPaymentDetails({
-                      bank_name: '',
-                      account_number: '',
-                      account_name: '',
-                      routing_number: '',
-                      swift_code: '',
-                      additional_notes: ''
-                    });
+                    setPaymentDetails('');
                   }}
                   className="flex-1 py-3 border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-gray-200 font-semibold rounded-xl transition-colors"
                 >
@@ -886,7 +809,7 @@ const ActiveTradeCard = ({
                 </button>
                 <button
                   onClick={handleUpdatePayment}
-                  disabled={updatingPayment || !paymentDetails.account_number || !paymentDetails.account_name}
+                  disabled={updatingPayment || !paymentDetails.trim()}
                   className="flex-1 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 disabled:opacity-50 text-gray-900 font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
                 >
                   {updatingPayment ? (
@@ -910,7 +833,7 @@ const ActiveTradeCard = ({
       {/* Bank Details Modal */}
       {showBankDetails && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-2 md:p-4">
-          <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700 shadow-2xl">
             <div className="p-4 md:p-6 border-b border-gray-700">
               <h3 className="text-lg font-bold text-gray-100">Payment Instructions</h3>
               <p className="text-gray-400 text-sm mt-1">

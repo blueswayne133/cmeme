@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, LogOut, Users, BarChart3, Shield, Settings, Wallet, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { Menu, X, LogOut, Users,   BarChart3, Shield, Settings, Wallet, FileText, AlertTriangle, CheckCircle } from "lucide-react";
 import api from "../../../utils/api";
 
 const AdminLayout = () => {
@@ -44,6 +44,7 @@ const adminNavItems = [
   { path: '/admin/tasks', label: 'Task Management', icon: CheckCircle },
   { path: '/admin/deposits', label: 'Deposit Requests', icon: Wallet },
   { path: '/admin/transactions', label: 'Transactions', icon: FileText },
+  { path: '/admin/p2p', label: 'Manage p2p', icon: BarChart3  },
   { path: '/admin/settings', label: 'Wallet Settings', icon: Settings }, // Updated this line
 ];
 
