@@ -11,33 +11,55 @@ const P2PHistoryPage = () => {
   const { userData } = useOutletContext();
 
   useEffect(() => {
-    fetchTradeHistory();
-    
-    // Set up polling for updates
-    const interval = setInterval(() => {
+    if (userData?.id) {
       fetchTradeHistory();
-    }, 15000);
-    
-    return () => clearInterval(interval);
-  }, [filter]);
+      
+      // Set up polling for updates
+      const interval = setInterval(() => {
+        fetchTradeHistory();
+      }, 15000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [filter, userData]);
 
   const fetchTradeHistory = async () => {
     try {
       setLoading(true);
+      
+      if (!userData?.id) {
+        return;
+      }
+
       const response = await api.get('/p2p/trades/user', {
         params: filter === 'all' ? {} : { status: filter }
       });
       
-      const allTrades = response.data.data?.trades?.data || response.data.data?.trades || [];
-      const userTrades = allTrades.filter(trade => 
-        trade.buyer_id === userData?.id || 
-        trade.seller_id === userData?.id
-      );
+      // Handle different response structures
+      let userTrades = [];
       
-      setTrades(userTrades);
+      if (response.data.data?.trades?.data) {
+        // Paginated response structure
+        userTrades = response.data.data.trades.data;
+      } else if (response.data.data?.trades) {
+        // Direct trades array in data
+        userTrades = response.data.data.trades;
+      } else if (Array.isArray(response.data.data)) {
+        // Data is direct array
+        userTrades = response.data.data;
+      } else if (Array.isArray(response.data.trades)) {
+        // Alternative structure
+        userTrades = response.data.trades;
+      } else if (Array.isArray(response.data)) {
+        // Direct array response
+        userTrades = response.data;
+      }
+      
+      setTrades(userTrades || []);
     } catch (error) {
       console.error('Error fetching trade history:', error);
-      toast.error('Failed to fetch trade history');
+      const errorMessage = error.response?.data?.message || 'Failed to fetch trade history';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -115,12 +137,6 @@ const P2PHistoryPage = () => {
       return trade.type === 'sell' ? 'Sold' : 'Bought';
     } else {
       return trade.type === 'sell' ? 'Bought' : 'Sold';
-    }
-  };
-
-  const viewProof = (proof) => {
-    if (proof.file_path) {
-      window.open(`${import.meta.env.VITE_API_URL}/storage/${proof.file_path}`, '_blank');
     }
   };
 
@@ -235,7 +251,7 @@ const P2PHistoryPage = () => {
                     {trade.proofs.map((proof) => (
                       <button
                         key={proof.id}
-                                        onClick={() => window.open(proof.file_path, '_blank')}
+                        onClick={() => window.open(proof.file_path, '_blank')}
                         className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all text-sm"
                       >
                         <FileText size={14} />
