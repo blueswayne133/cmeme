@@ -308,6 +308,7 @@ const ActiveTradeCard = ({
     (isSeller && trade.status === 'active') || 
     (isBuyer && trade.status === 'processing') || 
     (isSeller && trade.status === 'processing' && !trade.buyer_id);
+    
 
   // CORRECTED: Get trade type specific information
   const isSellOrder = trade.type === 'sell';
