@@ -44,6 +44,7 @@ const adminNavItems = [
   { path: '/admin/tasks', label: 'Task Management', icon: CheckCircle },
   { path: '/admin/deposits', label: 'Deposit Requests', icon: Wallet },
   { path: '/admin/transactions', label: 'Transactions', icon: FileText },
+  { path: '/admin/p2p-history', label: 'P2P History', icon: FileText },
   { path: '/admin/p2p', label: 'Manage p2p', icon: BarChart3  },
   { path: '/admin/settings', label: 'Wallet Settings', icon: Settings }, // Updated this line
 ];

@@ -5,6 +5,7 @@ import {
   Download, MoreVertical, Ban, Shield, RefreshCw
 } from "lucide-react";
 import api from "../../../utils/api";
+import toast from "react-hot-toast";
 
 const AdminP2PManagement = () => {
   const [trades, setTrades] = useState([]);
@@ -35,9 +36,32 @@ const AdminP2PManagement = () => {
     try {
       setLoading(true);
       const response = await api.get('/admin/p2p/trades', { params: filters });
-      setTrades(response.data.data.trades || []);
+      
+      // Handle different response structures
+      let tradesData = [];
+      
+      if (response.data.data?.trades?.data) {
+        // Paginated response structure
+        tradesData = response.data.data.trades.data;
+      } else if (response.data.data?.trades) {
+        // Direct trades array in data
+        tradesData = response.data.data.trades;
+      } else if (Array.isArray(response.data.data)) {
+        // Data is direct array
+        tradesData = response.data.data;
+      } else if (Array.isArray(response.data.trades)) {
+        // Alternative structure
+        tradesData = response.data.trades;
+      } else if (Array.isArray(response.data)) {
+        // Direct array response
+        tradesData = response.data;
+      }
+      
+      console.log('Fetched trades:', tradesData); // Debug log
+      setTrades(tradesData || []);
     } catch (error) {
       console.error('Error fetching trades:', error);
+      toast.error('Failed to fetch trades');
     } finally {
       setLoading(false);
     }
@@ -46,9 +70,10 @@ const AdminP2PManagement = () => {
   const fetchStats = async () => {
     try {
       const response = await api.get('/admin/p2p/stats');
-      setStats(response.data.data);
+      setStats(response.data.data || {});
     } catch (error) {
       console.error('Error fetching stats:', error);
+      toast.error('Failed to fetch stats');
     }
   };
 
@@ -59,6 +84,7 @@ const AdminP2PManagement = () => {
       setShowTradeModal(true);
     } catch (error) {
       console.error('Error fetching trade details:', error);
+      toast.error('Failed to fetch trade details');
     }
   };
 
@@ -70,6 +96,7 @@ const AdminP2PManagement = () => {
       fetchTrades();
     } catch (error) {
       console.error('Error resolving dispute:', error);
+      toast.error('Failed to resolve dispute');
     }
   };
 
@@ -82,6 +109,7 @@ const AdminP2PManagement = () => {
       fetchTrades();
     } catch (error) {
       console.error('Error cancelling trade:', error);
+      toast.error('Failed to cancel trade');
     }
   };
 
@@ -200,7 +228,7 @@ const AdminP2PManagement = () => {
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
-        ) : trades.length === 0 ? (
+        ) : !Array.isArray(trades) || trades.length === 0 ? (
           <div className="text-center py-12">
             <Clock size={48} className="text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-300 mb-2">No Trades Found</h3>
@@ -256,7 +284,7 @@ const AdminP2PManagement = () => {
 const StatCard = ({ title, value, color }) => (
   <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
     <p className="text-gray-400 text-sm mb-1">{title}</p>
-    <p className="text-2xl font-bold text-white">{value}</p>
+    <p className="text-2xl font-bold text-white">{value || 0}</p>
     <div className={`w-8 h-1 ${color} rounded-full mt-2`}></div>
   </div>
 );
@@ -278,12 +306,12 @@ const TradeRow = ({ trade, onView, onCancel, getStatusColor, getStatusIcon }) =>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <User size={12} className="text-gray-400" />
-            <span className="text-gray-300 text-sm">Seller: {trade.seller?.username}</span>
+            <span className="text-gray-300 text-sm">Seller: {trade.seller?.username || 'Unknown'}</span>
           </div>
           {trade.buyer && (
             <div className="flex items-center gap-2">
               <User size={12} className="text-gray-400" />
-              <span className="text-gray-300 text-sm">Buyer: {trade.buyer?.username}</span>
+              <span className="text-gray-300 text-sm">Buyer: {trade.buyer?.username || 'Unknown'}</span>
             </div>
           )}
         </div>
@@ -627,10 +655,10 @@ const InfoRow = ({ label, value }) => (
 const UserInfo = ({ user, role }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-      {user?.username?.charAt(0).toUpperCase()}
+      {user?.username?.charAt(0).toUpperCase() || '?'}
     </div>
     <div className="flex-1">
-      <p className="text-white font-medium">{user?.username}</p>
+      <p className="text-white font-medium">{user?.username || 'Unknown'}</p>
       <p className="text-gray-400 text-sm">{role}</p>
       <p className="text-gray-400 text-xs">
         Success: {user?.p2p_success_rate || 100}% • Trades: {user?.p2p_completed_trades || 0}

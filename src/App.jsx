@@ -31,6 +31,8 @@ import AdminTaskManagement from './pages/dashboard/admin/AdminTaskManagement';
 import DepositManagement from './pages/dashboard/admin/DepositManagement';
 import ReferralManagement from './pages/dashboard/user/ReferralManagement';
 import AdminP2PManagement from './pages/dashboard/admin/AdminP2PManagement';
+import UserTransactions from './pages/dashboard/admin/UserTransactions';
+import AdminP2PHistory from './pages/dashboard/admin/AdminP2PHistory';
 
 const App = () => {
   return (
@@ -118,7 +120,9 @@ const App = () => {
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="kyc" element={<KycManagement />} />
           <Route path="deposits" element={<DepositManagement />} />
+          <Route path="users/:id/transactions" element={<UserTransactions />} />
           <Route path="p2p" element={<AdminP2PManagement />} />
+          <Route path="p2p-history" element={<AdminP2PHistory />} />
           <Route path="referrals" element={<ReferralManagement />} />
           <Route path= "tasks" element= {<AdminTaskManagement />}/>
           <Route path="transactions" element={<TransactionManagement />} />

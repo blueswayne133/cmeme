@@ -21,7 +21,10 @@ import {
   Activity,
   Plus,
   Trash2,
-  LogIn
+  LogIn,
+  ChevronRight,
+  DollarSign,
+  BarChart3
 } from "lucide-react";
 import api from "../../../utils/api";
 
@@ -449,6 +452,34 @@ const UserDetail = () => {
 
         {/* Sidebar */}
         <div className="space-y-4 sm:space-y-6">
+          {/* Quick Actions Card */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate(`/admin/users/${user.id}/transactions`)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-xl text-blue-400 hover:text-blue-300 transition-all duration-200"
+              >
+                <div className="flex items-center gap-3">
+                  <BarChart3 size={18} />
+                  <span>View Transactions</span>
+                </div>
+                <ChevronRight size={16} />
+              </button>
+              
+              <button
+                onClick={() => navigate(`/admin/users/${user.id}/trades`)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded-xl text-green-400 hover:text-green-300 transition-all duration-200"
+              >
+                <div className="flex items-center gap-3">
+                  <DollarSign size={18} />
+                  <span>View Trades</span>
+                </div>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
           {/* Stats Card */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Statistics</h3>
