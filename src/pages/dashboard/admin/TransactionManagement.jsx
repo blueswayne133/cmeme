@@ -115,23 +115,31 @@ const TransactionManagement = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await transactionAPI.getUsers({ per_page: 100 });
-      const usersData = response.data.data || response.data;
-      
-      if (Array.isArray(usersData)) {
-        setUsers(usersData);
-      } else {
-        console.error('Unexpected users response structure:', usersData);
-        setUsers([]);
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Failed to fetch users");
+const fetchUsers = async () => {
+  try {
+    const response = await transactionAPI.getUsers({ per_page: 100 });
+    const usersData = response.data.data || response.data;
+
+    // If the API returns users inside a "users" key
+    const actualUsers = Array.isArray(usersData)
+      ? usersData
+      : Array.isArray(usersData.users)
+      ? usersData.users
+      : [];
+
+    if (actualUsers.length > 0) {
+      setUsers(actualUsers);
+    } else {
+      console.error("Unexpected users response structure:", usersData);
       setUsers([]);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    toast.error("Failed to fetch users");
+    setUsers([]);
+  }
+};
+
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
