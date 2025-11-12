@@ -183,6 +183,7 @@ const DashboardLayout = () => {
         referral_code: responseData.user.referral_code || 'N/A',
         p2p_success_rate: responseData.user.p2p_success_rate || 100,
         avatar_url: responseData.user.avatar_url || '',
+        cmeme_rate: responseData.user.cmeme_rate || 0
       };
 
       setUserData(normalizedUser);

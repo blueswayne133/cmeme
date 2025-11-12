@@ -138,7 +138,7 @@ const DashboardContent = () => {
             ≈ $
            {(
     (userData?.token_balance || userData?.totalBalance || 0) * 
-    (userData?.cmeme_rate || 0.2) // Use dynamic rate from user data
+    (userData?.cmeme_rate || userData?.data?.cmeme_rate || 0.2) // Use dynamic rate from user data
   ).toFixed(2)}
           </p>
         </div>
