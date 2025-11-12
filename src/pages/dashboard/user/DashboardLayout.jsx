@@ -97,21 +97,18 @@ const DashboardLayout = () => {
   // Fetch deposit wallet address from settings
   const fetchDepositWalletAddress = async () => {
     try {
-
-         const response = await api.get('/admin/settings');
-            setSettings(response.data.data || {
-              wallet: {
-                deposit_address: '',
-                network: 'base',
-                token: 'USDC',
-                min_deposit: 10
-              }
-            });
-   
+      const response = await api.get('/admin/settings');
+      setSettings(response.data.data || {
+        wallet: {
+          deposit_address: '',
+          network: 'base',
+          token: 'USDC',
+          min_deposit: 10
+        }
+      });
       setDepositWalletAddress(response.data.data.address || '');
     } catch (error) {
       console.error('Error fetching deposit wallet:', error);
-      // Fallback to user's wallet address if settings fail
       setDepositWalletAddress(userData?.walletAddress || '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb');
     }
   };
@@ -198,7 +195,6 @@ const DashboardLayout = () => {
         navigate('/auth');
       } else {
         setError("Failed to load user data. Please try again.");
-        // Fallback to mock data
         setUserData({
           username: "demo",
           tokens: 885,
@@ -242,6 +238,48 @@ const DashboardLayout = () => {
     }
   };
 
+  // Updated Withdraw Handler - USDC Withdrawal
+  const handleWithdraw = async () => {
+    try {
+      const minWithdrawal = 5;
+      const gasFee = 1.5;
+      const withdrawalAmount = parseFloat(withdrawAmount);
+      const netAmount = withdrawalAmount - gasFee;
+
+      if (withdrawalAmount < minWithdrawal) {
+        showToast(`Minimum withdrawal is $${minWithdrawal} USDC`, 'error');
+        return;
+      }
+
+      if (netAmount <= 0) {
+        showToast('Withdrawal amount must cover gas fee', 'error');
+        return;
+      }
+
+      if (withdrawalAmount > (userData?.usdc_balance || 0)) {
+        showToast('Insufficient USDC balance', 'error');
+        return;
+      }
+
+      const response = await api.post('/transactions/withdraw', {
+        amount: withdrawalAmount,
+        description: `USDC Withdrawal - Net: $${netAmount.toFixed(2)}`
+      });
+
+      if (response.data.status === 'success') {
+        showToast(`Withdrawal initiated: $${withdrawalAmount} USDC`, 'success');
+        setWithdrawModalOpen(false);
+        setWithdrawAmount("");
+        
+        // Refresh user data to update balances
+        await fetchUserData();
+      }
+    } catch (error) {
+      console.error('Error processing withdrawal:', error);
+      showToast(error.response?.data?.message || 'Failed to process withdrawal', 'error');
+    }
+  };
+
   // Avatar Modal Functions
   const handleStyleChange = (e) => {
     const newStyle = e.target.value;
@@ -259,7 +297,6 @@ const DashboardLayout = () => {
   const handleSaveAvatar = async () => {
     try {
       await api.post("/user/update-avatar", { avatar_url: selectedAvatar });
-      // Update local user data
       setUserData((prev) => ({ ...prev, avatar_url: selectedAvatar }));
       setAvatarModalOpen(false);
       showToast('Avatar updated successfully!', 'success');
@@ -294,7 +331,6 @@ const DashboardLayout = () => {
         setFromWallet("");
         setFundType(null);
         
-        // Refresh user data
         await fetchUserData();
       }
     } catch (error) {
@@ -320,7 +356,6 @@ const DashboardLayout = () => {
         setRecipientAddress("");
         setSendDescription("");
         
-        // Refresh user data to update balances
         await fetchUserData();
       }
     } catch (error) {
@@ -341,7 +376,6 @@ const DashboardLayout = () => {
   const walletNavItems = [
     { path: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { path: '/dashboard/history', label: 'History', icon: History },
-    
   ];
 
   const p2pNavItems = [
@@ -407,7 +441,6 @@ const DashboardLayout = () => {
           className="bg-gray-900 rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-700">
             <h2 className="text-xl font-bold text-gray-100">Choose Your Avatar</h2>
             <button
@@ -418,9 +451,7 @@ const DashboardLayout = () => {
             </button>
           </div>
 
-          {/* Body */}
           <div className="p-4 flex flex-col gap-5">
-            {/* Avatar Style Dropdown */}
             <div className="flex flex-col">
               <label className="text-gray-300 text-sm mb-1">Avatar Style</label>
               <select
@@ -436,7 +467,6 @@ const DashboardLayout = () => {
               </select>
             </div>
 
-            {/* Avatar Preview */}
             <div className="flex justify-center">
               <img
                 src={selectedAvatar}
@@ -445,7 +475,6 @@ const DashboardLayout = () => {
               />
             </div>
 
-            {/* Randomize Button */}
             <button
               onClick={handleRandomize}
               className="py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 transition-all"
@@ -454,7 +483,6 @@ const DashboardLayout = () => {
             </button>
           </div>
 
-          {/* Footer */}
           <div className="p-4 border-t border-gray-700">
             <button
               onClick={handleSaveAvatar}
@@ -590,7 +618,6 @@ const DashboardLayout = () => {
 
               <button
                 onClick={() => {
-                  // Open deposit confirmation modal
                   setFundModalOpen(false);
                   setTimeout(() => {
                     setDepositConfirmModalOpen(true);
@@ -682,7 +709,6 @@ const DashboardLayout = () => {
               />
             </div>
 
-            {/* Fee Breakdown */}
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Transfer Amount:</span>
@@ -815,8 +841,9 @@ const DashboardLayout = () => {
     const minWithdrawal = 5;
     const gasFee = 1.5;
     const availableUSDC = userData?.usdc_balance || 0;
-    const netAmount = (parseFloat(withdrawAmount) || 0) - gasFee;
-    const isValid = (parseFloat(withdrawAmount) || 0) >= minWithdrawal && netAmount > 0;
+    const withdrawalAmount = parseFloat(withdrawAmount) || 0;
+    const netAmount = withdrawalAmount - gasFee;
+    const isValid = withdrawalAmount >= minWithdrawal && netAmount > 0 && withdrawalAmount <= availableUSDC;
 
     return (
       <div
@@ -859,20 +886,26 @@ const DashboardLayout = () => {
               </p>
             </div>
 
-            {/* Fee Breakdown */}
+            {/* Enhanced Fee Breakdown */}
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Withdrawal Amount:</span>
-                <span className="text-gray-200">${(parseFloat(withdrawAmount) || 0).toFixed(2)}</span>
+                <span className="text-gray-200">${withdrawalAmount.toFixed(2)} USDC</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Gas Fee:</span>
-                <span className="text-red-400">-${gasFee.toFixed(2)}</span>
+                <span className="text-red-400">-${gasFee.toFixed(2)} USDC</span>
               </div>
               <div className="flex justify-between text-sm border-t border-gray-700 pt-2">
-                <span className="text-gray-300 font-medium">You Receive:</span>
+                <span className="text-gray-300 font-medium">You Will Receive:</span>
                 <span className={`font-bold ${netAmount > 0 ? 'text-green-400' : 'text-gray-400'}`}>
-                  ${netAmount.toFixed(2)}
+                  ${netAmount.toFixed(2)} USDC
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">New Balance:</span>
+                <span className="text-gray-200">
+                  ${(availableUSDC - withdrawalAmount).toFixed(2)} USDC
                 </span>
               </div>
             </div>
@@ -886,14 +919,7 @@ const DashboardLayout = () => {
 
             {/* Withdraw Button */}
             <button 
-              onClick={() => {
-                if (isValid) {
-                  // Handle withdrawal logic here
-                  showToast(`Withdrawal initiated: $${withdrawAmount} USDC`, 'success');
-                  setWithdrawModalOpen(false);
-                  setWithdrawAmount("");
-                }
-              }}
+              onClick={handleWithdraw}
               disabled={!isValid}
               className={`w-full py-3 rounded-xl font-semibold transition-all shadow-lg ${
                 isValid 

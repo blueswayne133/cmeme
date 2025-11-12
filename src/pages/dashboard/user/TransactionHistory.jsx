@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ArrowUpRight, ArrowDownLeft, Download, Users, Clock, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Download, Users, Clock, Filter, ChevronLeft, ChevronRight, Wallet } from "lucide-react";
 import api from "../../../utils/api";
 
 const TransactionHistory = () => {
@@ -22,7 +22,6 @@ const TransactionHistory = () => {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      // This endpoint needs to be created in your backend
       const response = await api.get('/transactions', {
         params: { filter }
       });
@@ -43,6 +42,11 @@ const TransactionHistory = () => {
         { id: 10, type: "p2p", amount: 30, token: "CMEME", date: "2024-01-06", status: "completed", description: "P2P Trade Completed" },
         { id: 11, type: "send", amount: 45, token: "USDC", date: "2024-01-05", status: "completed", description: "Transfer to UID456123" },
         { id: 12, type: "deposit", amount: 150, token: "USDC", date: "2024-01-04", status: "completed", description: "USDC Deposit" },
+        // Withdrawal transactions
+        { id: 13, type: "withdrawal", amount: 25, token: "USDC", date: "2024-01-03", status: "completed", description: "USDC Withdrawal - Net: $23.50", metadata: { withdrawal_amount: 25, gas_fee: 1.5, net_amount: 23.5 } },
+        { id: 14, type: "withdrawal", amount: 50, token: "USDC", date: "2024-01-02", status: "pending", description: "USDC Withdrawal - Processing", metadata: { withdrawal_amount: 50, gas_fee: 1.5, net_amount: 48.5 } },
+        { id: 15, type: "withdrawal", amount: 15, token: "USDC", date: "2024-01-01", status: "completed", description: "USDC Withdrawal - Net: $13.50", metadata: { withdrawal_amount: 15, gas_fee: 1.5, net_amount: 13.5 } },
+        { id: 16, type: "withdrawal", amount: 100, token: "USDC", date: "2023-12-28", status: "failed", description: "USDC Withdrawal - Insufficient Balance", metadata: { withdrawal_amount: 100, gas_fee: 1.5, net_amount: 98.5 } },
       ]);
     } finally {
       setLoading(false);
@@ -68,6 +72,7 @@ const TransactionHistory = () => {
       case 'p2p': return <Users size={16} />;
       case 'mining': return <Clock size={16} />;
       case 'deposit': return <Download size={16} />;
+      case 'withdrawal': return <Wallet size={16} />;
       default: return <Download size={16} />;
     }
   };
@@ -80,7 +85,21 @@ const TransactionHistory = () => {
       case 'p2p': return 'bg-yellow-500/20 text-yellow-400';
       case 'mining': return 'bg-purple-500/20 text-purple-400';
       case 'deposit': return 'bg-blue-500/20 text-blue-400';
+      case 'withdrawal': return 'bg-orange-500/20 text-orange-400';
       default: return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  const getTransactionLabel = (type) => {
+    switch (type) {
+      case 'send': return 'Sent';
+      case 'receive': return 'Received';
+      case 'fund': return 'Funding';
+      case 'p2p': return 'P2P Trade';
+      case 'mining': return 'Mining';
+      case 'deposit': return 'Deposit';
+      case 'withdrawal': return 'Withdrawal';
+      default: return type;
     }
   };
 
@@ -92,6 +111,72 @@ const TransactionHistory = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const renderTransactionDescription = (transaction) => {
+    if (transaction.type === 'withdrawal' && transaction.metadata) {
+      return (
+        <div>
+          <p className="text-sm text-gray-400">{transaction.description}</p>
+          <div className="text-xs text-gray-500 mt-1 space-y-1">
+            <div className="flex gap-2">
+              <span>Gross: ${transaction.metadata.withdrawal_amount}</span>
+              <span>Fee: ${transaction.metadata.gas_fee}</span>
+              <span>Net: ${transaction.metadata.net_amount}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <p className="text-sm text-gray-400">{transaction.description}</p>
+    );
+  };
+
+  const renderAmountDisplay = (transaction) => {
+    if (transaction.type === 'withdrawal') {
+      return (
+        <div className="text-right">
+          <p className="text-red-400 font-semibold">
+            -{transaction.amount} {transaction.token}
+          </p>
+          {transaction.metadata && (
+            <p className="text-xs text-gray-400">
+              Net: ${transaction.metadata.net_amount}
+            </p>
+          )}
+          <p className={`text-sm ${
+            transaction.status === 'completed' ? 'text-green-400' :
+            transaction.status === 'pending' ? 'text-yellow-400' :
+            transaction.status === 'failed' ? 'text-red-400' :
+            'text-gray-400'
+          }`}>
+            {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-right">
+        <p className={`font-semibold ${
+          transaction.type === 'send' 
+            ? 'text-red-400' 
+            : 'text-green-400'
+        }`}>
+          {transaction.type === 'send' ? '-' : '+'}{transaction.amount} {transaction.token}
+        </p>
+        <p className={`text-sm ${
+          transaction.status === 'completed' ? 'text-green-400' :
+          transaction.status === 'pending' ? 'text-yellow-400' :
+          transaction.status === 'failed' ? 'text-red-400' :
+          'text-gray-400'
+        }`}>
+          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+        </p>
+      </div>
+    );
   };
 
   if (loading) {
@@ -125,6 +210,7 @@ const TransactionHistory = () => {
             <option value="p2p">P2P Trading</option>
             <option value="mining">Mining</option>
             <option value="deposit">Deposits</option>
+            <option value="withdrawal">Withdrawals</option>
           </select>
         </div>
       </div>
@@ -144,33 +230,20 @@ const TransactionHistory = () => {
                     <div className={`p-2 rounded-lg ${getTransactionColor(transaction.type)}`}>
                       {getTransactionIcon(transaction.type)}
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-100 capitalize">
-                        {transaction.type} {transaction.token}
-                      </p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-100">
+                          {getTransactionLabel(transaction.type)}
+                        </p>
+                        <span className="text-xs px-2 py-1 bg-gray-700/50 rounded text-gray-300">
+                          {transaction.token}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-400">{formatDate(transaction.date)}</p>
-                      {transaction.description && (
-                        <p className="text-xs text-gray-500 mt-1">{transaction.description}</p>
-                      )}
+                      {renderTransactionDescription(transaction)}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${
-                      transaction.type === 'send' || transaction.type === 'withdrawal' 
-                        ? 'text-red-400' 
-                        : 'text-green-400'
-                    }`}>
-                      {transaction.type === 'send' || transaction.type === 'withdrawal' ? '-' : '+'}{transaction.amount} {transaction.token}
-                    </p>
-                    <p className={`text-sm ${
-                      transaction.status === 'completed' ? 'text-green-400' :
-                      transaction.status === 'pending' ? 'text-yellow-400' :
-                      transaction.status === 'failed' ? 'text-red-400' :
-                      'text-gray-400'
-                    }`}>
-                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                    </p>
-                  </div>
+                  {renderAmountDisplay(transaction)}
                 </div>
               ))}
             </div>
@@ -218,6 +291,40 @@ const TransactionHistory = () => {
             )}
           </>
         )}
+      </div>
+
+      {/* Transaction Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-1">Total Transactions</p>
+          <p className="text-2xl font-bold text-gray-100">{transactions.length}</p>
+        </div>
+        
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-1">Completed Withdrawals</p>
+          <p className="text-2xl font-bold text-green-400">
+            {transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed').length}
+          </p>
+        </div>
+        
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-1">Pending Withdrawals</p>
+          <p className="text-2xl font-bold text-yellow-400">
+            {transactions.filter(t => t.type === 'withdrawal' && t.status === 'pending').length}
+          </p>
+        </div>
+        
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+          <p className="text-gray-400 text-sm mb-1">Total USDC Withdrawn</p>
+          <p className="text-2xl font-bold text-orange-400">
+            $
+            {transactions
+              .filter(t => t.type === 'withdrawal' && t.status === 'completed' && t.token === 'USDC')
+              .reduce((total, t) => total + (t.metadata?.net_amount || t.amount), 0)
+              .toFixed(2)
+            }
+          </p>
+        </div>
       </div>
     </div>
   );

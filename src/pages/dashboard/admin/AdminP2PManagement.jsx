@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { 
   Search, Filter, Eye, MessageCircle, FileText, 
   Check, X, AlertTriangle, Clock, User, DollarSign,
-  Download, MoreVertical, Ban, Shield, RefreshCw
+  Download, MoreVertical, Ban, Shield, RefreshCw,
+  ArrowUpDown, Coins
 } from "lucide-react";
 import api from "../../../utils/api";
 import toast from "react-hot-toast";
@@ -113,6 +114,21 @@ const AdminP2PManagement = () => {
     }
   };
 
+  const handleForceCancelTrade = async (tradeId, reason = "Support cancellation - tokens refunded") => {
+    if (!confirm("Are you sure you want to force cancel this trade and refund tokens? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await api.post(`/admin/p2p/trades/${tradeId}/force-cancel-refund`, { reason });
+      toast.success(response.data.message || 'Trade cancelled and tokens refunded successfully');
+      fetchTrades();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to cancel trade';
+      toast.error(errorMessage);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'text-blue-400 bg-blue-500/20';
@@ -133,6 +149,10 @@ const AdminP2PManagement = () => {
       case 'cancelled': return <X size={14} />;
       default: return <Clock size={14} />;
     }
+  };
+
+  const getTradeTypeColor = (type) => {
+    return type === 'sell' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400';
   };
 
   return (
@@ -230,7 +250,7 @@ const AdminP2PManagement = () => {
           </div>
         ) : !Array.isArray(trades) || trades.length === 0 ? (
           <div className="text-center py-12">
-            <Clock size={48} className="text-gray-600 mx-auto mb-4" />
+            <Coins size={48} className="text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-300 mb-2">No Trades Found</h3>
             <p className="text-gray-400">No trades match your current filters</p>
           </div>
@@ -255,8 +275,10 @@ const AdminP2PManagement = () => {
                     trade={trade} 
                     onView={handleViewTrade}
                     onCancel={handleCancelTrade}
+                    onForceCancel={handleForceCancelTrade}
                     getStatusColor={getStatusColor}
                     getStatusIcon={getStatusIcon}
+                    getTradeTypeColor={getTradeTypeColor}
                   />
                 ))}
               </tbody>
@@ -274,6 +296,7 @@ const AdminP2PManagement = () => {
             setSelectedTrade(null);
           }}
           onCancel={handleCancelTrade}
+          onForceCancel={handleForceCancelTrade}
           onResolveDispute={handleResolveDispute}
         />
       )}
@@ -289,15 +312,17 @@ const StatCard = ({ title, value, color }) => (
   </div>
 );
 
-const TradeRow = ({ trade, onView, onCancel, getStatusColor, getStatusIcon }) => {
+const TradeRow = ({ trade, onView, onCancel, onForceCancel, getStatusColor, getStatusIcon, getTradeTypeColor }) => {
   const [showActions, setShowActions] = useState(false);
+
+  const canForceCancel = ['active', 'processing'].includes(trade.status);
 
   return (
     <tr className="hover:bg-gray-750 transition-colors">
       <td className="px-4 py-4">
         <div className="flex items-center gap-2">
           <span className="text-gray-300 font-mono text-sm">#{trade.id}</span>
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${trade.type === 'sell' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'}`}>
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTradeTypeColor(trade.type)}`}>
             {trade.type}
           </span>
         </div>
@@ -345,13 +370,26 @@ const TradeRow = ({ trade, onView, onCancel, getStatusColor, getStatusIcon }) =>
           >
             <Eye size={14} />
           </button>
+          
+          {/* Force Cancel & Refund Button */}
+          {canForceCancel && (
+            <button
+              onClick={() => onForceCancel(trade.id)}
+              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              title="Force Cancel & Refund Tokens"
+            >
+              <Ban size={14} />
+            </button>
+          )}
+          
+          {/* Regular Cancel Button */}
           {trade.status === 'active' && (
             <button
               onClick={() => onCancel(trade.id, 'Admin cancelled')}
-              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              className="p-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
               title="Cancel Trade"
             >
-              <Ban size={14} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -360,9 +398,11 @@ const TradeRow = ({ trade, onView, onCancel, getStatusColor, getStatusIcon }) =>
   );
 };
 
-const TradeDetailModal = ({ trade, onClose, onCancel, onResolveDispute }) => {
+const TradeDetailModal = ({ trade, onClose, onCancel, onForceCancel, onResolveDispute }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [resolution, setResolution] = useState('');
+
+  const canForceCancel = ['active', 'processing'].includes(trade.status);
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -408,7 +448,14 @@ const TradeDetailModal = ({ trade, onClose, onCancel, onResolveDispute }) => {
             {activeTab === 'messages' && <MessagesTab trade={trade} />}
             {activeTab === 'proofs' && <ProofsTab trade={trade} />}
             {activeTab === 'dispute' && <DisputeTab trade={trade} onResolve={onResolveDispute} />}
-            {activeTab === 'actions' && <ActionsTab trade={trade} onCancel={onCancel} />}
+            {activeTab === 'actions' && (
+              <ActionsTab 
+                trade={trade} 
+                onCancel={onCancel}
+                onForceCancel={onForceCancel}
+                canForceCancel={canForceCancel}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -430,6 +477,12 @@ const OverviewTab = ({ trade }) => (
           <InfoRow label="Total" value={`$${trade.total}`} />
           <InfoRow label="Payment Method" value={trade.payment_method} />
           <InfoRow label="Time Limit" value={`${trade.time_limit} minutes`} />
+          {trade.expires_at && (
+            <InfoRow 
+              label="Expires At" 
+              value={new Date(trade.expires_at).toLocaleString()} 
+            />
+          )}
         </div>
       </div>
 
@@ -459,6 +512,13 @@ const OverviewTab = ({ trade }) => (
         <pre className="text-gray-300 whitespace-pre-wrap text-sm font-mono bg-gray-800 p-3 rounded-lg">
           {trade.payment_details}
         </pre>
+      </div>
+    )}
+
+    {trade.cancellation_reason && (
+      <div className="bg-gray-700/50 rounded-xl p-4">
+        <h3 className="text-lg font-semibold text-white mb-4">Cancellation Reason</h3>
+        <p className="text-gray-300">{trade.cancellation_reason}</p>
       </div>
     )}
   </div>
@@ -601,48 +661,117 @@ const DisputeTab = ({ trade, onResolve }) => {
   );
 };
 
-const ActionsTab = ({ trade, onCancel }) => (
-  <div className="space-y-6">
-    <h3 className="text-lg font-semibold text-white mb-4">Admin Actions</h3>
-    
-    <div className="bg-gray-700/50 rounded-xl p-4">
-      <h4 className="text-md font-semibold text-white mb-3">Trade Management</h4>
-      <div className="space-y-3">
-        {trade.status === 'active' && (
-          <button
-            onClick={() => onCancel(trade.id, 'Admin cancelled trade')}
-            className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <Ban size={16} />
-            Cancel Trade
+const ActionsTab = ({ trade, onCancel, onForceCancel, canForceCancel }) => {
+  const [cancelReason, setCancelReason] = useState('');
+  const [forceCancelReason, setForceCancelReason] = useState('');
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-white mb-4">Admin Actions</h3>
+      
+      {/* Force Cancel & Refund Section */}
+      {canForceCancel && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+          <h4 className="text-md font-semibold text-red-300 mb-3">Force Cancel & Refund Tokens</h4>
+          <p className="text-red-200 text-sm mb-4">
+            This will cancel the trade and automatically refund CMEME tokens to the rightful owner. 
+            Use this when tokens are stuck due to expired trades or non-payment.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Reason for Force Cancellation</label>
+              <textarea
+                value={forceCancelReason}
+                onChange={(e) => setForceCancelReason(e.target.value)}
+                placeholder="Enter reason for force cancellation..."
+                className="w-full h-20 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500 resize-none"
+              />
+            </div>
+            <button
+              onClick={() => onForceCancel(trade.id, forceCancelReason || "Admin force cancellation - tokens refunded")}
+              className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <Ban size={16} />
+              Force Cancel & Refund Tokens
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Regular Trade Management */}
+      <div className="bg-gray-700/50 rounded-xl p-4">
+        <h4 className="text-md font-semibold text-white mb-3">Trade Management</h4>
+        <div className="space-y-3">
+          {trade.status === 'active' && (
+            <>
+              <div className="mb-3">
+                <label className="block text-gray-300 text-sm mb-2">Cancellation Reason</label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Enter cancellation reason..."
+                  className="w-full h-20 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 resize-none"
+                />
+              </div>
+              <button
+                onClick={() => onCancel(trade.id, cancelReason || "Admin cancelled trade")}
+                className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <X size={16} />
+                Cancel Trade
+              </button>
+            </>
+          )}
+          
+          <button className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
+            <Download size={16} />
+            Export Trade Data
           </button>
-        )}
-        
-        <button className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
-          <Download size={16} />
-          Export Trade Data
-        </button>
 
-        <button className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
-          <FileText size={16} />
-          Generate Report
-        </button>
+          <button className="w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2">
+            <FileText size={16} />
+            Generate Report
+          </button>
+        </div>
+      </div>
+
+      {/* User Management */}
+      <div className="bg-gray-700/50 rounded-xl p-4">
+        <h4 className="text-md font-semibold text-white mb-3">User Management</h4>
+        <div className="space-y-3">
+          <button className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
+            Contact Seller
+          </button>
+          {trade.buyer && (
+            <button className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
+              Contact Buyer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Trade Information */}
+      <div className="bg-gray-700/50 rounded-xl p-4">
+        <h4 className="text-md font-semibold text-white mb-3">Trade Information</h4>
+        <div className="space-y-2 text-sm">
+          <InfoRow label="Trade Type" value={trade.type} />
+          <InfoRow label="CMEME Amount" value={`${trade.amount} CMEME`} />
+          <InfoRow label="Total Value" value={`$${trade.total} USD`} />
+          <InfoRow label="Current Status" value={trade.status} />
+          {trade.expires_at && (
+            <InfoRow 
+              label="Time Remaining" 
+              value={new Date(trade.expires_at) > new Date() 
+                ? `${Math.ceil((new Date(trade.expires_at) - new Date()) / (1000 * 60))} minutes`
+                : 'Expired'
+              } 
+            />
+          )}
+        </div>
       </div>
     </div>
-
-    <div className="bg-gray-700/50 rounded-xl p-4">
-      <h4 className="text-md font-semibold text-white mb-3">User Management</h4>
-      <div className="space-y-3">
-        <button className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
-          Contact Seller
-        </button>
-        <button className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
-          Contact Buyer
-        </button>
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 // Helper Components
 const InfoRow = ({ label, value }) => (
