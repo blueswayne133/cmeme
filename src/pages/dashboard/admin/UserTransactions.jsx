@@ -28,7 +28,9 @@ const UserTransactions = () => {
   const fetchUserData = async () => {
     try {
       const response = await api.get(`/admin/users/${id}`);
-      setUser(response.data.data.user);
+      const userData = response.data.data?.user || response.data.data;
+setUser(userData);
+
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
