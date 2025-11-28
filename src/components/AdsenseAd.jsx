@@ -13,8 +13,8 @@ export default function AdsenseAd() {
     <ins
       className="adsbygoogle"
       style={{ display: "block" }}
-      data-ad-client="ca-pub-9776277179268943"
-      data-ad-slot="5156629928"
+      data-ad-client="ca-pub-2110075742497468"
+      data-ad-slot="3017551745"
       data-ad-format="auto"
       data-full-width-responsive="true"
     ></ins>
