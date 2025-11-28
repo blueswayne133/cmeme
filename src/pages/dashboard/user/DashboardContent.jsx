@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../../../utils/api";
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import AdsenseAd from "../../../components/AdsenseAd";
 
 const DashboardContent = () => {
   const [miningStatus, setMiningStatus] = useState({
@@ -219,6 +220,12 @@ const DashboardContent = () => {
           )}
           <p>Resets every 24 hours</p>
         </div>
+      </div>
+
+
+         {/* Google AdSense */}
+      <div className="mt-4">
+        <AdsenseAd />
       </div>
 
       {/* Reward Cards */}

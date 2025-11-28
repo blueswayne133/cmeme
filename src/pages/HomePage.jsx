@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../utils/api"
 import logo from "../assets/logo.jpg.png"
+import AdsenseAd from "../components/AdsenseAd"
 
 const HomePage = () => {
     const navigate = useNavigate()
@@ -50,6 +51,10 @@ const HomePage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-purple-950 text-white">
+                {/* Top Banner Ad */}
+    <div className="px-4 py-4">
+       <AdsenseAd />
+    </div>
             {/* Hero Section */}
             <div className="px-4 pt-12 pb-8 text-center">
                 <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
