@@ -171,7 +171,7 @@ const KycPage = () => {
             )}
             {kycData.kyc_status === 'pending' && (
               <p className="text-sm opacity-80">
-                Submitted on {new Date(kycData.kyc_submitted_at).toLocaleDateString()} - Under automatic verification
+                Submitted on {new Date(kycData.kyc_submitted_at).toLocaleDateString()} - Under review by our team
               </p>
             )}
             {kycData.kyc_status === 'rejected' && kycData.rejection_reason && (
@@ -325,12 +325,26 @@ const KycPage = () => {
           <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
             <h4 className="text-blue-400 font-semibold mb-2">Important Information</h4>
             <ul className="text-blue-300 text-sm space-y-1">
-              <li>• Documents are automatically verified using our system</li>
+              <li>• Documents are reviewed by our verification team</li>
               <li>• Ensure documents are clear and all information is visible</li>
               <li>• Supported documents: Passport, Driver's License, National ID</li>
-              <li>• Verification typically completes within minutes</li>
+              <li>• Review typically completes within 24-48 hours</li>
             </ul>
           </div>
+        </div>
+      )}
+
+      {/* Pending Message */}
+      {kycData.kyc_status === 'pending' && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 text-center">
+          <AlertCircle size={48} className="text-yellow-400 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-yellow-400 mb-2">KYC Under Review</h3>
+          <p className="text-yellow-300 mb-2">
+            Your KYC documents have been submitted and are currently under review by our team.
+          </p>
+          <p className="text-yellow-300/80 text-sm">
+            You will be notified once the review is complete. This typically takes 24-48 hours.
+          </p>
         </div>
       )}
 

@@ -17,6 +17,8 @@ import ActiveTradesPage from './pages/dashboard/user/ActiveTradesPage';
 import P2PHistoryPage from './pages/dashboard/user/P2PHistoryPage';
 import KycPage from './pages/dashboard/user/KycPage';
 import AboutUsPage from './pages/dashboard/user/AboutUsPage';
+import SubscriptionPage from './pages/dashboard/user/SubscriptionPage';
+import SwapPage from './pages/dashboard/user/SwapPage';
 
 // Admin Components
 import AdminLogin from './pages/dashboard/admin/AdminLogin';
@@ -102,6 +104,8 @@ const App = () => {
           <Route path="p2p/history" element={<P2PHistoryPage />} />
           <Route path="kyc" element={<KycPage />} />
           <Route path="about" element={<AboutUsPage />} />
+          <Route path="subscription" element={<SubscriptionPage />} />
+          <Route path="swap" element={<SwapPage />} />
         </Route>
 
         {/* 👑 Admin Routes */}

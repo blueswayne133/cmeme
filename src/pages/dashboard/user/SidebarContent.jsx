@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   Home,
   CheckSquare,
@@ -13,9 +14,13 @@ import {
   Download,
   Link,
   X,
+  Crown,
+  ArrowUpDown,
 } from "lucide-react"
 
-const SidebarContent = ({ currentPage, setCurrentPage, setSidebarOpen, userData }) => {
+const SidebarContent = ({ setSidebarOpen, userData }) => {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = (text) => {
@@ -25,30 +30,34 @@ const SidebarContent = ({ currentPage, setCurrentPage, setSidebarOpen, userData 
   }
 
   const mainNavItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "referrals", label: "Referrals", icon: Users },
-    { id: "leaderboard", label: "Leaderboard", icon: Trophy },
+    { path: "/dashboard", label: "Dashboard", icon: Home },
+    { path: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
+    { path: "/dashboard/referrals", label: "Referrals", icon: Users },
+    { path: "/dashboard/leaderboard", label: "Leaderboard", icon: Trophy },
   ]
 
   const walletNavItems = [
-    { id: "wallet", label: "Wallet", icon: Wallet },
-    { id: "history", label: "History", icon: History },
-    { id: "p2p", label: "P2P Trade", icon: Users },
+    { path: "/dashboard/wallet", label: "Wallet", icon: Wallet },
+    { path: "/dashboard/history", label: "History", icon: History },
+    { path: "/dashboard/p2p", label: "P2P Trade", icon: Users },
+    { path: "/dashboard/swap", label: "Swap", icon: ArrowUpDown },
+    { path: "/dashboard/subscription", label: "Subscription", icon: Crown },
   ]
+
+  const isActive = (path) => location.pathname === path
 
   const NavItem = ({ item }) => {
     const Icon = item.icon
-    const isActive = currentPage === item.id
+    const active = isActive(item.path)
 
     return (
       <button
         onClick={() => {
-          setCurrentPage(item.id)
+          navigate(item.path)
           setSidebarOpen(false)
         }}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
-          isActive
+          active
             ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 shadow-lg"
             : "text-gray-300 hover:bg-gray-800/50"
         }`}
@@ -122,7 +131,7 @@ const SidebarContent = ({ currentPage, setCurrentPage, setSidebarOpen, userData 
         {/* Wallet & Trading */}
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4">
-            Wallet & Tradingggg
+            Wallet & Trading
           </h3>
           {walletNavItems.map((item) => (
             <NavItem key={item.id} item={item} />

@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   Clock,
   BarChart3,
+  Crown,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -377,6 +378,8 @@ const DashboardLayout = () => {
   const walletNavItems = [
     { path: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { path: '/dashboard/history', label: 'History', icon: History },
+    { path: '/dashboard/swap', label: 'Swap', icon: ArrowUpDown },
+    { path: '/dashboard/subscription', label: 'Subscription', icon: Crown },
   ];
 
   const p2pNavItems = [

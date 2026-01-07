@@ -1,6 +1,6 @@
 // src/pages/admin/AdminSettings.jsx
 import { useState, useEffect } from "react";
-import { Save, Wallet, Copy, Check, DollarSign, TrendingUp, TrendingDown, AlertCircle, Infinity } from "lucide-react";
+import { Save, Wallet, Copy, Check, DollarSign, TrendingUp, TrendingDown, AlertCircle, Infinity, Crown } from "lucide-react";
 import api from "../../../utils/api";
 
 const AdminSettings = () => {
@@ -9,7 +9,9 @@ const AdminSettings = () => {
       deposit_address: '',
       network: 'base',
       token: 'USDC',
-      min_deposit: 10
+      min_deposit: 10,
+      subscription_fee_cmeme: 1500,
+      subscription_fee_usdc: 1500,
     },
     token: {
       cmeme_rate: 0.2
@@ -48,7 +50,9 @@ const AdminSettings = () => {
           deposit_address: '',
           network: 'base',
           token: 'USDC',
-          min_deposit: 10
+          min_deposit: 10,
+          subscription_fee_cmeme: 1500,
+          subscription_fee_usdc: 1500,
         },
         token: {
           cmeme_rate: 0.2
@@ -57,6 +61,14 @@ const AdminSettings = () => {
       
       if (!data.token) {
         data.token = { cmeme_rate: 0.2 };
+      }
+      
+      // Ensure subscription fees have defaults
+      if (!data.wallet.subscription_fee_cmeme) {
+        data.wallet.subscription_fee_cmeme = 1500;
+      }
+      if (!data.wallet.subscription_fee_usdc) {
+        data.wallet.subscription_fee_usdc = 1500;
       }
       
       setSettings(data);
@@ -414,6 +426,75 @@ const AdminSettings = () => {
                   onChange={(e) => updateWalletSetting('min_deposit', parseFloat(e.target.value))}
                   className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Subscription Fee Settings */}
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-yellow-500 rounded-lg">
+              <Crown size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Subscription Fees</h2>
+              <p className="text-gray-400">Set subscription fees for premium membership</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CMEME Subscription Fee */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Subscription Fee (CMEME) *
+                </label>
+                <input
+                  type="number"
+                  step="0.00000001"
+                  min="0"
+                  required
+                  value={settings.wallet?.subscription_fee_cmeme || 1500}
+                  onChange={(e) => updateWalletSetting('subscription_fee_cmeme', parseFloat(e.target.value))}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-yellow-500"
+                  placeholder="1500"
+                />
+                <p className="text-gray-400 text-xs mt-1">
+                  Amount users pay in CMEME tokens to subscribe
+                </p>
+              </div>
+
+              {/* USDC Subscription Fee */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Subscription Fee (USDC) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={settings.wallet?.subscription_fee_usdc || 1500}
+                  onChange={(e) => updateWalletSetting('subscription_fee_usdc', parseFloat(e.target.value))}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-yellow-500"
+                  placeholder="1500"
+                />
+                <p className="text-gray-400 text-xs mt-1">
+                  Amount users pay in USDC to subscribe
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-blue-300 text-sm">
+                  <p className="font-semibold mb-1">Subscription Fee Info</p>
+                  <p className="text-xs">
+                    Users can choose to pay in either CMEME tokens or USDC. The fees will be deducted from their respective balances when they subscribe.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

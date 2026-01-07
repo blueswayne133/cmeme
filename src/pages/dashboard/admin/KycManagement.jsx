@@ -23,6 +23,10 @@ const KycManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedKyc, setSelectedKyc] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [approveNotes, setApproveNotes] = useState('');
   const [filters, setFilters] = useState({
     status: 'all',
     documentType: 'all',
@@ -100,27 +104,54 @@ const KycManagement = () => {
     }
   };
 
-  const approveKyc = async (kycId) => {
+  const handleApproveClick = (kycId) => {
+    setSelectedKyc(kycList.find(k => k.id === kycId));
+    setApproveNotes('');
+    setShowApproveModal(true);
+  };
+
+  const approveKyc = async () => {
+    if (!selectedKyc) return;
+    
     try {
-      await api.post(`/admin/kyc/${kycId}/approve`);
+      await api.post(`/admin/kyc/${selectedKyc.id}/approve`, {
+        notes: approveNotes || null
+      });
       await fetchKycList();
+      setShowApproveModal(false);
       setShowModal(false);
+      setApproveNotes('');
+      alert('KYC approved successfully');
     } catch (error) {
       console.error('Error approving KYC:', error);
-      alert('Failed to approve KYC');
+      alert(error.response?.data?.message || 'Failed to approve KYC');
     }
   };
 
-  const rejectKyc = async (kycId, reason) => {
-    if (!reason) return;
+  const handleRejectClick = (kycId) => {
+    setSelectedKyc(kycList.find(k => k.id === kycId));
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const rejectKyc = async () => {
+    if (!selectedKyc || !rejectReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
     
     try {
-      await api.post(`/admin/kyc/${kycId}/reject`, { reason });
+      await api.post(`/admin/kyc/${selectedKyc.id}/reject`, { 
+        reason: rejectReason.trim() 
+      });
       await fetchKycList();
+      setShowRejectModal(false);
       setShowModal(false);
+      setRejectReason('');
+      alert('KYC rejected successfully');
     } catch (error) {
       console.error('Error rejecting KYC:', error);
-      alert('Failed to reject KYC');
+      alert(error.response?.data?.message || 'Failed to reject KYC');
     }
   };
 
@@ -143,18 +174,52 @@ const KycManagement = () => {
 
   const downloadDocument = async (kycId, documentType) => {
     try {
-      const response = await api.get(`/admin/kyc/${kycId}/document/${documentType}`, {
-        responseType: 'blob'
-      });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${documentType}_${kycId}.jpg`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // Get the document URL from the KYC data
+      const kyc = kycList.find(k => k.id === kycId) || selectedKyc;
+      if (!kyc) return;
+
+      const documentPath = documentType === 'front' 
+        ? kyc.document_front_path 
+        : kyc.document_back_path;
+
+      if (!documentPath) {
+        alert('Document not found');
+        return;
+      }
+
+      // If it's a URL (Cloudinary), open in new tab or download
+      if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
+        // Try to download by fetching and creating blob
+        try {
+          const response = await fetch(documentPath);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `${documentType}_${kycId}.jpg`);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (e) {
+          // Fallback: open in new tab
+          window.open(documentPath, '_blank');
+        }
+      } else {
+        // Local file - use API endpoint
+        const response = await api.get(`/admin/kyc/${kycId}/document/${documentType}`, {
+          responseType: 'blob'
+        });
+        
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${documentType}_${kycId}.jpg`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Error downloading document:', error);
       alert('Failed to download document');
@@ -427,27 +492,20 @@ const KycManagement = () => {
                 >
                   <Eye size={16} />
                 </button>
-                {kyc.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => approveKyc(kyc.id)}
-                      className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
-                      title="Approve"
-                    >
-                      <CheckCircle size={16} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        const reason = prompt('Rejection reason:');
-                        if (reason) rejectKyc(kyc.id, reason);
-                      }}
-                      className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                      title="Reject"
-                    >
-                      <XCircle size={16} />
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => handleApproveClick(kyc.id)}
+                  className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
+                  title="Approve"
+                >
+                  <CheckCircle size={16} />
+                </button>
+                <button
+                  onClick={() => handleRejectClick(kyc.id)}
+                  className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                  title="Reject"
+                >
+                  <XCircle size={16} />
+                </button>
                 <button
                   onClick={() => downloadDocument(kyc.id, 'front')}
                   className="p-2 text-gray-400 hover:bg-gray-400/10 rounded-lg transition-colors"
@@ -571,27 +629,20 @@ const KycManagement = () => {
                       >
                         <Eye size={16} />
                       </button>
-                      {kyc.status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => approveKyc(kyc.id)}
-                            className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
-                            title="Approve"
-                          >
-                            <CheckCircle size={16} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const reason = prompt('Rejection reason:');
-                              if (reason) rejectKyc(kyc.id, reason);
-                            }}
-                            className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                            title="Reject"
-                          >
-                            <XCircle size={16} />
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => handleApproveClick(kyc.id)}
+                        className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
+                        title="Approve"
+                      >
+                        <CheckCircle size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleRejectClick(kyc.id)}
+                        className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                        title="Reject"
+                      >
+                        <XCircle size={16} />
+                      </button>
                       <button
                         onClick={() => downloadDocument(kyc.id, 'front')}
                         className="p-2 text-gray-400 hover:bg-gray-400/10 rounded-lg transition-colors"
@@ -776,9 +827,12 @@ const KycManagement = () => {
                     <label className="text-gray-400 text-sm mb-2 block">Front Side</label>
                     <div className="bg-gray-700 rounded-lg p-4">
                       <img 
-                        src={`/api/admin/kyc/${selectedKyc.id}/document/front`}
+                        src={selectedKyc.document_front_path || `/api/admin/kyc/${selectedKyc.id}/document/front`}
                         alt="Document Front"
                         className="w-full h-32 object-contain rounded"
+                        onError={(e) => {
+                          e.target.src = `/api/admin/kyc/${selectedKyc.id}/document/front`;
+                        }}
                       />
                       <button
                         onClick={() => downloadDocument(selectedKyc.id, 'front')}
@@ -793,9 +847,12 @@ const KycManagement = () => {
                     <label className="text-gray-400 text-sm mb-2 block">Back Side</label>
                     <div className="bg-gray-700 rounded-lg p-4">
                       <img 
-                        src={`/api/admin/kyc/${selectedKyc.id}/document/back`}
+                        src={selectedKyc.document_back_path || `/api/admin/kyc/${selectedKyc.id}/document/back`}
                         alt="Document Back"
                         className="w-full h-32 object-contain rounded"
+                        onError={(e) => {
+                          e.target.src = `/api/admin/kyc/${selectedKyc.id}/document/back`;
+                        }}
                       />
                       <button
                         onClick={() => downloadDocument(selectedKyc.id, 'back')}
@@ -827,27 +884,28 @@ const KycManagement = () => {
               )}
 
               {/* Action Buttons */}
-              {selectedKyc.status === 'pending' && (
-                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-700">
-                  <button
-                    onClick={() => approveKyc(selectedKyc.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-semibold"
-                  >
-                    <CheckCircle size={18} />
-                    Approve KYC
-                  </button>
-                  <button
-                    onClick={() => {
-                      const reason = prompt('Please enter the rejection reason:');
-                      if (reason) rejectKyc(selectedKyc.id, reason);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold"
-                  >
-                    <XCircle size={18} />
-                    Reject KYC
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-700">
+                <button
+                  onClick={() => {
+                    setApproveNotes('');
+                    setShowApproveModal(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-semibold"
+                >
+                  <CheckCircle size={18} />
+                  Approve KYC
+                </button>
+                <button
+                  onClick={() => {
+                    setRejectReason('');
+                    setShowRejectModal(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold"
+                >
+                  <XCircle size={18} />
+                  Reject KYC
+                </button>
+              </div>
 
               {/* Delete Button */}
               <div className="pt-4 border-t border-gray-700">
@@ -857,6 +915,142 @@ const KycManagement = () => {
                 >
                   <Trash2 size={18} />
                   Delete KYC Submission
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve KYC Modal */}
+      {showApproveModal && selectedKyc && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-md">
+            <div className="p-4 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Approve KYC Verification</h3>
+                <button
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setApproveNotes('');
+                  }}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-gray-300 text-sm mb-2">
+                  Approving KYC for: <span className="font-semibold text-white">{selectedKyc.user?.username}</span>
+                </p>
+                <p className="text-gray-400 text-xs">
+                  Document: {selectedKyc.document_type_label} - {selectedKyc.document_number}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={approveNotes}
+                  onChange={(e) => setApproveNotes(e.target.value)}
+                  placeholder="Add any notes about this approval..."
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+                  rows={4}
+                  maxLength={500}
+                />
+                <p className="text-gray-500 text-xs mt-1">{approveNotes.length}/500</p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setApproveNotes('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={approveKyc}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-semibold"
+                >
+                  <CheckCircle size={18} />
+                  Approve KYC
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject KYC Modal */}
+      {showRejectModal && selectedKyc && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-md">
+            <div className="p-4 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Reject KYC Verification</h3>
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason('');
+                  }}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-gray-300 text-sm mb-2">
+                  Rejecting KYC for: <span className="font-semibold text-white">{selectedKyc.user?.username}</span>
+                </p>
+                <p className="text-gray-400 text-xs">
+                  Document: {selectedKyc.document_type_label} - {selectedKyc.document_number}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Rejection Reason <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Please provide a reason for rejection. This will be shown to the user."
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-red-500 resize-none"
+                  rows={4}
+                  maxLength={500}
+                  required
+                />
+                <p className="text-gray-500 text-xs mt-1">{rejectReason.length}/500</p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={rejectKyc}
+                  disabled={!rejectReason.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <XCircle size={18} />
+                  Reject KYC
                 </button>
               </div>
             </div>
