@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Crown, CheckCircle, AlertCircle, Coins, DollarSign } from "lucide-react";
+import { Crown, CheckCircle, AlertCircle, Coins, DollarSign, X, RefreshCw } from "lucide-react";
 import api from "../../../utils/api";
+import toast from "react-hot-toast";
 
 const SubscriptionPage = () => {
   const { userData, refetchUserData } = useOutletContext();
@@ -17,6 +18,7 @@ const SubscriptionPage = () => {
     can_pay_cmeme: false,
     can_pay_usdc: false,
   });
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetchSubscriptionStatus();
@@ -42,9 +44,17 @@ const SubscriptionPage = () => {
     }
   };
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = () => {
     if (!subscriptionStatus.can_subscribe) {
-      alert('You have already subscribed. This is a one-time subscription.');
+      toast.error('You have already subscribed. This is a one-time subscription.', {
+        style: {
+          background: '#1f2937',
+          color: '#fff',
+          border: '1px solid #ef4444',
+        },
+        icon: '❌',
+        duration: 4000,
+      });
       return;
     }
 
@@ -61,28 +71,30 @@ const SubscriptionPage = () => {
       : subscriptionStatus.can_pay_usdc;
 
     if (!canPay) {
-      alert(`Insufficient ${selectedCurrency} balance. You need ${fee.toLocaleString('en-US', { 
+      toast.error(`Insufficient ${selectedCurrency} balance. You need ${fee.toLocaleString('en-US', { 
         minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2, 
         maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2 
-      })} ${selectedCurrency} to subscribe. Your current balance: ${balance.toLocaleString('en-US', { 
-        minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2, 
-        maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2 
-      })} ${selectedCurrency}`);
+      })} ${selectedCurrency} to subscribe.`, {
+        style: {
+          background: '#1f2937',
+          color: '#fff',
+          border: '1px solid #ef4444',
+        },
+        icon: '❌',
+        duration: 5000,
+      });
       return;
     }
 
-    if (!confirm(`Are you sure you want to subscribe? This will cost ${fee.toLocaleString('en-US', { 
-      minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2, 
-      maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2 
-    })} ${selectedCurrency} (one-time only).\n\nYour ${selectedCurrency} balance: ${balance.toLocaleString('en-US', { 
-      minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2, 
-      maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2 
-    })} ${selectedCurrency}\nAfter subscription: ${(balance - fee).toLocaleString('en-US', { 
-      minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2, 
-      maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2 
-    })} ${selectedCurrency}`)) {
-      return;
-    }
+    // Show confirmation modal
+    setShowConfirmModal(true);
+  };
+
+  const confirmSubscribe = async () => {
+    setShowConfirmModal(false);
+    const fee = selectedCurrency === 'CMEME' 
+      ? subscriptionStatus.subscription_fee_cmeme 
+      : subscriptionStatus.subscription_fee_usdc;
 
     try {
       setLoading(true);
@@ -91,7 +103,15 @@ const SubscriptionPage = () => {
       });
       
       if (response.data.status === 'success') {
-        alert(response.data.message);
+        toast.success('Subscription successful! You are now a premium subscriber.', {
+          style: {
+            background: '#065f46',
+            color: '#fff',
+            border: '1px solid #10b981',
+          },
+          icon: '✅',
+          duration: 5000,
+        });
         await fetchSubscriptionStatus();
         if (refetchUserData) {
           await refetchUserData();
@@ -99,7 +119,15 @@ const SubscriptionPage = () => {
       }
     } catch (error) {
       console.error('Error subscribing:', error);
-      alert(error.response?.data?.message || 'Failed to subscribe');
+      toast.error(error.response?.data?.message || 'Failed to subscribe', {
+        style: {
+          background: '#7f1d1d',
+          color: '#fff',
+          border: '1px solid #ef4444',
+        },
+        icon: '❌',
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -333,6 +361,103 @@ const SubscriptionPage = () => {
               <div>
                 <p className="text-white font-semibold">Premium Badge</p>
                 <p className="text-gray-400 text-sm">Display your premium status</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-md shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-500/20 rounded-xl">
+                    <Crown size={24} className="text-yellow-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Confirm Subscription</h3>
+                </div>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Subscription Fee:</span>
+                    <span className="text-yellow-400 font-bold text-lg">
+                      {(selectedCurrency === 'CMEME' 
+                        ? subscriptionStatus.subscription_fee_cmeme 
+                        : subscriptionStatus.subscription_fee_usdc).toLocaleString('en-US', {
+                        minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2,
+                        maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2
+                      })} {selectedCurrency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Current Balance:</span>
+                    <span className="text-white font-semibold">
+                      {(selectedCurrency === 'CMEME'
+                        ? subscriptionStatus.user_balance_cmeme
+                        : subscriptionStatus.user_balance_usdc).toLocaleString('en-US', {
+                        minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2,
+                        maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2
+                      })} {selectedCurrency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-600">
+                    <span className="text-gray-400">Balance After:</span>
+                    <span className="text-green-400 font-semibold">
+                      {((selectedCurrency === 'CMEME'
+                        ? subscriptionStatus.user_balance_cmeme
+                        : subscriptionStatus.user_balance_usdc) - (selectedCurrency === 'CMEME'
+                        ? subscriptionStatus.subscription_fee_cmeme
+                        : subscriptionStatus.subscription_fee_usdc)).toLocaleString('en-US', {
+                        minimumFractionDigits: selectedCurrency === 'CMEME' ? 2 : 2,
+                        maximumFractionDigits: selectedCurrency === 'CMEME' ? 8 : 2
+                      })} {selectedCurrency}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                  <p className="text-blue-300 text-xs flex items-center gap-2">
+                    <AlertCircle size={14} />
+                    This is a one-time payment. You can only subscribe once.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-colors font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmSubscribe}
+                    disabled={loading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 rounded-xl transition-all font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <RefreshCw size={18} className="animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Crown size={20} />
+                        Confirm & Subscribe
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
