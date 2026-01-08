@@ -27,6 +27,7 @@ import {
   DollarSign
 } from "lucide-react";
 import api from "../../../utils/api";
+import toast from "react-hot-toast";
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -132,9 +133,19 @@ const UserManagement = () => {
           setVerifyModal(true);
           return;
         case 'delete':
-          if (confirm(`Are you sure you want to delete user ${user.username}? This action cannot be undone.`)) {
-            await api.delete(`/admin/users/${user.id}`);
-            fetchUsers();
+          if (window.confirm(`Are you sure you want to delete user ${user.username}? This action cannot be undone.`)) {
+            try {
+              await api.delete(`/admin/users/${user.id}`);
+              toast.success(`User ${user.username} deleted successfully!`, {
+                icon: '🗑️',
+                duration: 4000,
+              });
+              fetchUsers();
+            } catch (error) {
+              toast.error(error.response?.data?.message || 'Failed to delete user', {
+                duration: 4000,
+              });
+            }
           }
           break;
         case 'view':
@@ -149,23 +160,36 @@ const UserManagement = () => {
           setEmailModal(true);
           return;
         case 'impersonate':
-          if (confirm(`Login as ${user.username}? You will be redirected to their dashboard.`)) {
+          if (window.confirm(`Login as ${user.username}? You will be redirected to their dashboard.`)) {
             // Note: This would require backend implementation
-            alert('Impersonation feature would be implemented here');
+            toast.info('Impersonation feature would be implemented here', {
+              duration: 3000,
+            });
           }
           return;
         case 'suspend':
-          if (confirm(`Are you sure you want to suspend ${user.username}?`)) {
-            await api.post(`/admin/users/${user.id}/suspend`);
-            fetchUsers();
-            alert('User suspended successfully');
+          if (window.confirm(`Are you sure you want to suspend ${user.username}?`)) {
+            try {
+              await api.post(`/admin/users/${user.id}/suspend`);
+              toast.success(`User ${user.username} suspended successfully!`, {
+                icon: '⏸️',
+                duration: 4000,
+              });
+              fetchUsers();
+            } catch (error) {
+              toast.error(error.response?.data?.message || 'Failed to suspend user', {
+                duration: 4000,
+              });
+            }
           }
           return;
       }
       setMobileMenuOpen(null);
     } catch (error) {
       console.error('Error performing action:', error);
-      alert(error.response?.data?.message || 'Action failed');
+      toast.error(error.response?.data?.message || 'Action failed', {
+        duration: 4000,
+      });
     }
   };
 
@@ -175,10 +199,15 @@ const UserManagement = () => {
       setVerifyModal(false);
       setSelectedUser(null);
       fetchUsers();
-      alert('User verified successfully!');
+      toast.success(`User ${selectedUser?.username} verified successfully!`, {
+        icon: '✅',
+        duration: 4000,
+      });
     } catch (error) {
       console.error('Error verifying user:', error);
-      alert(error.response?.data?.message || 'Verification failed');
+      toast.error(error.response?.data?.message || 'Verification failed', {
+        duration: 4000,
+      });
     }
   };
 
@@ -204,7 +233,10 @@ const UserManagement = () => {
       setAddBalanceModal(false);
       setSelectedUser(null);
       fetchUsers();
-      alert('Balance updated successfully!');
+      toast.success('Balance updated successfully!', {
+        icon: '💰',
+        duration: 4000,
+      });
     } catch (error) {
       console.error('Error adding balance:', error);
       console.error('Error response:', error.response);
@@ -214,7 +246,9 @@ const UserManagement = () => {
                           error.response?.data?.error || 
                           'Failed to update balance';
       
-      alert(`Error: ${errorMessage}`);
+      toast.error(errorMessage, {
+        duration: 4000,
+      });
     }
   };
 
@@ -233,9 +267,15 @@ const UserManagement = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      toast.success('Users exported successfully!', {
+        icon: '📥',
+        duration: 3000,
+      });
     } catch (error) {
       console.error('Error exporting users:', error);
-      alert('Failed to export users');
+      toast.error('Failed to export users', {
+        duration: 4000,
+      });
     } finally {
       setExportLoading(false);
     }
@@ -319,7 +359,7 @@ const UserManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 rounded-xl p-3 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -399,12 +439,12 @@ const UserManagement = () => {
       {/* Users Table */}
       <div className="bg-gray-800/50 rounded-2xl border border-gray-700 overflow-hidden shadow-2xl">
         {/* Desktop Table */}
-        <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full">
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b border-gray-700 bg-gray-800/80">
                 <th 
-                  className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
+                  className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
                   onClick={() => handleSort('username')}
                 >
                   <div className="flex items-center gap-2">
@@ -412,11 +452,11 @@ const UserManagement = () => {
                     {getSortIcon('username')}
                   </div>
                 </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Balances
                 </th>
                 <th 
-                  className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
+                  className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
                   onClick={() => handleSort('is_verified')}
                 >
                   <div className="flex items-center gap-2">
@@ -425,7 +465,7 @@ const UserManagement = () => {
                   </div>
                 </th>
                 <th 
-                  className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
+                  className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
                   onClick={() => handleSort('kyc_status')}
                 >
                   <div className="flex items-center gap-2">
@@ -434,7 +474,7 @@ const UserManagement = () => {
                   </div>
                 </th>
                 <th 
-                  className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
+                  className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors"
                   onClick={() => handleSort('created_at')}
                 >
                   <div className="flex items-center gap-2">
@@ -442,7 +482,7 @@ const UserManagement = () => {
                     {getSortIcon('created_at')}
                   </div>
                 </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                <th className="px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -470,7 +510,7 @@ const UserManagement = () => {
               ) : (
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-700/30 transition-all duration-200 group">
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm sm:text-lg shadow-lg">
                           {user.username?.charAt(0).toUpperCase() || 'U'}
@@ -488,25 +528,25 @@ const UserManagement = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                       <div className="space-y-1 sm:space-y-2">
                         <div className="flex items-center gap-2">
-                          <DollarSign size={12} className="text-yellow-400" />
-                          <p className="text-white font-semibold text-sm">{formatBalance(user.token_balance)} CMEME</p>
+                          <DollarSign size={12} className="text-yellow-400 flex-shrink-0" />
+                          <p className="text-white font-semibold text-xs md:text-sm truncate">{formatBalance(user.token_balance)} CMEME</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <DollarSign size={12} className="text-blue-400" />
-                          <p className="text-gray-300 text-xs">${formatBalance(user.usdc_balance)} USDC</p>
+                          <DollarSign size={12} className="text-blue-400 flex-shrink-0" />
+                          <p className="text-gray-300 text-xs truncate">${formatBalance(user.usdc_balance)} USDC</p>
                         </div>
                         {user.mining_streak > 0 && (
                           <div className="flex items-center gap-2">
-                            <Award size={12} className="text-green-400" />
+                            <Award size={12} className="text-green-400 flex-shrink-0" />
                             <p className="text-gray-400 text-xs">Streak: {user.mining_streak} days</p>
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                       <div className="space-y-1 sm:space-y-2">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           user.is_verified 
@@ -525,7 +565,7 @@ const UserManagement = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
                         user.kyc_status === 'verified' 
                           ? 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -541,7 +581,7 @@ const UserManagement = () => {
                         </p>
                       )}
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                       <div className="text-gray-300">
                         <p className="font-medium text-sm">{new Date(user.created_at).toLocaleDateString()}</p>
                         <p className="text-gray-500 text-xs">{new Date(user.created_at).toLocaleTimeString()}</p>
@@ -553,32 +593,32 @@ const UserManagement = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex items-center gap-1 opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                    <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                      <div className="flex items-center gap-1 flex-wrap opacity-100 group-hover:opacity-100 transition-opacity duration-200">
                         <button
                           onClick={() => handleAction('view', user)}
-                          className="p-1 sm:p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                          className="p-1.5 md:p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                           title="View Details"
                         >
                           <Eye size={14} />
                         </button>
                         <button
                           onClick={() => handleAction('impersonate', user)}
-                          className="p-1 sm:p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                          className="p-1.5 md:p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                           title="Login as User"
                         >
                           <LogIn size={14} />
                         </button>
                         <button
                           onClick={() => handleAction('add_balance', user)}
-                          className="p-1 sm:p-2 text-green-400 hover:bg-green-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                          className="p-1.5 md:p-2 text-green-400 hover:bg-green-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                           title="Add Balance"
                         >
                           <Plus size={14} />
                         </button>
                         <button
                           onClick={() => handleAction('send_email', user)}
-                          className="p-1 sm:p-2 text-yellow-400 hover:bg-yellow-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                          className="p-1.5 md:p-2 text-yellow-400 hover:bg-yellow-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                           title="Send Email"
                         >
                           <Mail size={14} />
@@ -586,7 +626,7 @@ const UserManagement = () => {
                         {!user.is_verified && (
                           <button
                             onClick={() => handleAction('verify', user)}
-                            className="p-1 sm:p-2 text-green-400 hover:bg-green-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                            className="p-1.5 md:p-2 text-green-400 hover:bg-green-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                             title="Verify User"
                           >
                             <CheckCircle size={14} />
@@ -594,7 +634,7 @@ const UserManagement = () => {
                         )}
                         <button
                           onClick={() => handleAction('delete', user)}
-                          className="p-1 sm:p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all duration-200 hover:scale-110"
+                          className="p-1.5 md:p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all duration-200 hover:scale-110"
                           title="Delete User"
                         >
                           <Trash2 size={14} />
@@ -609,7 +649,7 @@ const UserManagement = () => {
         </div>
 
         {/* Mobile Cards */}
-        <div className="lg:hidden space-y-3 p-3 sm:p-4">
+        <div className="md:hidden space-y-3 p-3 sm:p-4">
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
@@ -856,7 +896,9 @@ const AddBalanceModal = ({ user, onClose, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      alert('Please enter a valid amount');
+      toast.error('Please enter a valid amount', {
+        duration: 3000,
+      });
       return;
     }
     onSubmit(formData);
@@ -954,17 +996,23 @@ const SendEmailModal = ({ user, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.subject || !formData.message) {
-      alert('Please fill in all fields');
+      toast.error('Please fill in all fields', {
+        duration: 3000,
+      });
       return;
     }
     
     try {
       // This would integrate with your email service
-      alert('Email functionality would be implemented here');
+      toast.info('Email functionality would be implemented here', {
+        duration: 3000,
+      });
       onClose();
     } catch (error) {
       console.error('Error sending email:', error);
-      alert('Failed to send email');
+      toast.error('Failed to send email', {
+        duration: 4000,
+      });
     }
   };
 
