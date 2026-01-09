@@ -10,15 +10,16 @@ const api = axios.create({
 
 // Request interceptor
 api.interceptors.request.use(config => {
-  // Better way to check if this is an admin route
-  const isAdminRoute = config.url?.startsWith('/admin') || config.url?.includes('/admin/');
+  // Check if this is an admin route - must start with '/admin' to be treated as admin route
+  const url = config.url || '';
+  const isAdminRoute = url.startsWith('/admin');
   const token = localStorage.getItem(isAdminRoute ? 'adminToken' : 'authToken');
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  console.log('API Request:', config.url, 'Token:', token ? 'Present' : 'Missing');
+  console.log('API Request:', config.url, 'IsAdmin:', isAdminRoute, 'Token:', token ? 'Present' : 'Missing');
   return config;
 }, error => {
   return Promise.reject(error);
@@ -31,19 +32,44 @@ api.interceptors.response.use(
     return response;
   },
   error => {
-    console.log('API Response Error:', error.config?.url, error.response?.status, error.response?.data);
+    const url = error.config?.url || '';
+    const status = error.response?.status;
     
-    if (error.response?.status === 401) {
-      const isAdminRoute = error.config?.url?.includes('/admin/');
+    // Only handle 401 Unauthorized errors
+    if (status === 401) {
+      // Determine if this is an admin route - must start with '/admin'
+      const isAdminRoute = url.startsWith('/admin');
       
+      // Get current path
+      const currentPath = window.location.pathname;
+      
+      // Skip redirect for login endpoints (they handle their own errors)
+      if (url === '/login' || url === '/admin/login') {
+        return Promise.reject(error);
+      }
+      
+      // Skip redirect if already on auth pages
+      if (currentPath === '/auth' || currentPath === '/admin/login') {
+        return Promise.reject(error);
+      }
+      
+      // Clear tokens and redirect based on route type
       if (isAdminRoute) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
-        window.location.href = '/admin/login';
+        // This is an admin API route - redirect to admin login only if on admin pages
+        if (currentPath.startsWith('/admin') && !currentPath.includes('/login')) {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin/login';
+          return Promise.reject(error);
+        }
       } else {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
-        window.location.href = '/auth';
+        // This is a user API route - redirect to user auth only if on user dashboard
+        if (currentPath.startsWith('/dashboard') && !currentPath.startsWith('/admin')) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          window.location.href = '/auth';
+          return Promise.reject(error);
+        }
       }
     }
     return Promise.reject(error);

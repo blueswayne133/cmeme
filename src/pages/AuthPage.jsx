@@ -247,6 +247,11 @@ export default function AuthPage() {
           throw new Error('No token received from server');
         }
         
+        // Clear any admin tokens to avoid conflicts
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminData');
+        
+        // Store user token and data
         localStorage.setItem('authToken', token);
         localStorage.setItem('userData', JSON.stringify(user));
         
@@ -314,6 +319,10 @@ export default function AuthPage() {
       const user = responseData.user;
       const token = responseData.token;
 
+      // Clear any admin tokens to avoid conflicts
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
+      
       localStorage.setItem('authToken', token);
       localStorage.setItem('userData', JSON.stringify(user));
       
@@ -375,6 +384,10 @@ export default function AuthPage() {
       const user = responseData.user;
       const token = responseData.token;
 
+      // Clear any admin tokens to avoid conflicts
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
+      
       localStorage.setItem('authToken', token);
       localStorage.setItem('userData', JSON.stringify(user));
       
