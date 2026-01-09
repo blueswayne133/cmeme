@@ -35,6 +35,7 @@ import ReferralManagement from './pages/dashboard/user/ReferralManagement';
 import AdminP2PManagement from './pages/dashboard/admin/AdminP2PManagement';
 import UserTransactions from './pages/dashboard/admin/UserTransactions';
 import AdminP2PHistory from './pages/dashboard/admin/AdminP2PHistory';
+import TopUsersPage from './pages/dashboard/admin/TopUsersPage';
 
 const App = () => {
   return (
@@ -131,6 +132,7 @@ const App = () => {
           <Route path= "tasks" element= {<AdminTaskManagement />}/>
           <Route path="transactions" element={<TransactionManagement />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="top-users" element={<TopUsersPage />} />
         </Route>
 
 

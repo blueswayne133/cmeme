@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, LogOut, Users,   BarChart3, Shield, Settings, Wallet, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { Menu, X, LogOut, Users,   BarChart3, Shield, Settings, Wallet, FileText, AlertTriangle, CheckCircle, Trophy } from "lucide-react";
 import api from "../../../utils/api";
 
 const AdminLayout = () => {
@@ -39,6 +39,7 @@ const AdminLayout = () => {
 const adminNavItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
   { path: '/admin/users', label: 'User Management', icon: Users },
+  { path: '/admin/top-users', label: 'Top Users', icon: Trophy },
   { path: '/admin/referrals', label: 'Referral Management', icon: Users },
   { path: '/admin/kyc', label: 'KYC Verifications', icon: Shield },
   { path: '/admin/tasks', label: 'Task Management', icon: CheckCircle },
@@ -46,7 +47,7 @@ const adminNavItems = [
   { path: '/admin/transactions', label: 'Transactions', icon: FileText },
   { path: '/admin/p2p-history', label: 'P2P History', icon: FileText },
   { path: '/admin/p2p', label: 'Manage p2p', icon: BarChart3  },
-  { path: '/admin/settings', label: 'Wallet Settings', icon: Settings }, // Updated this line
+  { path: '/admin/settings', label: 'Wallet Settings', icon: Settings },
 ];
 
   const isActive = (path) => location.pathname === path;

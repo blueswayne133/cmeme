@@ -12,6 +12,7 @@ const AdminSettings = () => {
       min_deposit: 10,
       subscription_fee_cmeme: 1500,
       subscription_fee_usdc: 1500,
+      max_cmeme_balance: 100000,
     },
     token: {
       cmeme_rate: 0.2
@@ -53,6 +54,7 @@ const AdminSettings = () => {
           min_deposit: 10,
           subscription_fee_cmeme: 1500,
           subscription_fee_usdc: 1500,
+          max_cmeme_balance: 100000,
         },
         token: {
           cmeme_rate: 0.2
@@ -69,6 +71,9 @@ const AdminSettings = () => {
       }
       if (!data.wallet.subscription_fee_usdc) {
         data.wallet.subscription_fee_usdc = 1500;
+      }
+      if (!data.wallet.max_cmeme_balance) {
+        data.wallet.max_cmeme_balance = 100000;
       }
       
       setSettings(data);
@@ -493,6 +498,57 @@ const AdminSettings = () => {
                   <p className="font-semibold mb-1">Subscription Fee Info</p>
                   <p className="text-xs">
                     Users can choose to pay in either CMEME tokens or USDC. The fees will be deducted from their respective balances when they subscribe.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Maximum Balance Settings */}
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-purple-500 rounded-lg">
+              <Infinity size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Balance Limits</h2>
+              <p className="text-gray-400">Set maximum balance limits for users</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Maximum CMEME Balance */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Maximum CMEME Balance per User *
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                required
+                value={settings.wallet?.max_cmeme_balance || 100000}
+                onChange={(e) => updateWalletSetting('max_cmeme_balance', parseFloat(e.target.value))}
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                placeholder="100000"
+              />
+              <p className="text-gray-400 text-xs mt-1">
+                Maximum amount of CMEME tokens a user can hold. Default: 100,000 CMEME
+              </p>
+              <p className="text-yellow-400 text-xs mt-2 flex items-center gap-1">
+                <AlertCircle size={12} />
+                Users cannot receive more tokens (from tasks, mining, swaps, etc.) once they reach this limit
+              </p>
+            </div>
+
+            <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                <div className="text-purple-300 text-sm">
+                  <p className="font-semibold mb-1">Balance Limit Info</p>
+                  <p className="text-xs">
+                    Once a user reaches the maximum CMEME balance, they will not be able to receive additional tokens from mining rewards, task completions, swaps, or any other source. This helps maintain balance distribution across users.
                   </p>
                 </div>
               </div>
